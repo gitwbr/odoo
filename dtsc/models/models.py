@@ -269,6 +269,25 @@ class PurchaseOrderLine(models.Model):
     
     taxes_id = fields.Many2many('account.tax', string='Taxes', compute="_compute_taxes_id", domain=['|', ('active', '=', False), ('active', '=', True)])
     
+    @api.model
+    def create(self, vals):
+        # 获取 purchase.order 的 is_return_goods 字段值
+        if 'order_id' in vals:
+            purchase_order = self.env['purchase.order'].browse(vals['order_id'])
+            if purchase_order.is_return_goods and 'product_qty' in vals:
+                # 如果是退货单，将 product_qty 转为负数
+                vals['product_qty'] = -abs(vals['product_qty'])
+        return super(PurchaseOrderLine, self).create(vals)
+
+    def write(self, vals):
+        # 遍历当前记录集，更新时检查每条记录的关联 purchase.order
+        for line in self:
+            purchase_order = line.order_id
+            if purchase_order.is_return_goods and 'product_qty' in vals:
+                # 如果是退货单，将 product_qty 转为负数
+                vals['product_qty'] = -abs(vals['product_qty'])
+        return super(PurchaseOrderLine, self).write(vals)
+    
     @api.depends("order_id.supp_invoice_form")
     def _compute_taxes_id(self):
         for record in self:
@@ -302,6 +321,20 @@ class PurchaseOrder(models.Model):
     no_vat_price = fields.Monetary("不含稅總價",store=True,compute="_compute_no_vat_price")
     
     
+    def write(self, vals):
+        # 检查是否更改了 is_return_goods
+        if 'is_return_goods' in vals:
+            for order in self:
+                # 获取所有关联的 purchase.order.line
+                for line in order.order_line:
+                    # 判断是否需要将 product_qty 修改为负数
+                    if vals['is_return_goods']:
+                        line.product_qty = -abs(line.product_qty)
+                    else:
+                        line.product_qty = abs(line.product_qty)
+        return super(PurchaseOrder, self).write(vals)
+    
+    
     @api.depends("partner_id.supp_invoice_form")
     def _compute_supp_invoice_form(self):
         for record in self:
@@ -316,7 +349,7 @@ class PurchaseOrder(models.Model):
     def _compute_no_vat_price(self):
         for record in self:
             if record.is_return_goods:
-                record.no_vat_price = -record.amount_untaxed
+                record.no_vat_price = -abs(record.amount_untaxed)
             else:
                 record.no_vat_price = record.amount_untaxed
     

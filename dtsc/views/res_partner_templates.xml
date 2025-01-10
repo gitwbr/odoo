@@ -10,7 +10,23 @@
 		<!-- <field name="binding_type">action</field> -->
 		<!-- <field name="binding_view_types">list</field> -->
 	<!-- </record> -->
-	
+	<record id="view_partner_tree_supp" model="ir.ui.view">
+		<field name="name">res.partner.tree.supp</field>
+		<field name="model">res.partner</field>
+		<field name="arch" type="xml">
+
+
+			<tree string="Contacts" sample="1" multi_edit="1">
+				<field name="display_name" string="名稱"/>
+				<field name="function" invisible="1"/>
+				<field name="parent_id" invisible="1" readonly="1"/>
+				<field name="custom_init_name"/>
+				<field name="custom_id"/>
+				<field name="phone"/>
+			</tree>
+
+		</field>	
+	</record>
 	
 	<record id="view_partner_tree_inherit" model="ir.ui.view">
 		<field name="name">res.partner.tree.inherit</field>
@@ -37,9 +53,13 @@
 				<attribute name="invisible">1</attribute>
 			</xpath>
 			<xpath expr="//field[@name='user_id']" position="after">
-				<field name="sell_user"  widget="many2one_avatar_user" string="銷售員"/>
+				<field name="supplier_rank" invisible="1"/>
+				<field name="sell_user"  widget="many2one_avatar_user" string="銷售員" attrs="{'column_invisible': [('supplier_rank','>', 0)]}"/>
 			</xpath>
 			<xpath expr="//field[@name='user_id']" position="attributes">
+				<attribute name="invisible">1</attribute>
+			</xpath>
+			<xpath expr="//field[@name='company_id']" position="attributes">
 				<attribute name="invisible">1</attribute>
 			</xpath>
 		</field>

@@ -2771,7 +2771,7 @@ class AccountMove(models.Model):
         ('other', '其他'),
     ], string='稅別')
     
-    partner_display_name = fields.Char(string='Partner Display Name', compute='_compute_partner_display_name' ,store=True)
+    partner_display_name = fields.Char(string='Partner Display Name', compute='_compute_partner_display_name' ,store=True) 
     custom_id = fields.Char(related = "partner_id.custom_id")
     is_online = fields.Boolean( default = False)
     report_year = fields.Many2one("dtsc.year",string="年",compute="_compute_year_month",store=True)

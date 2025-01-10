@@ -1,0 +1,128 @@
+<odoo>
+    <data>
+        <!-- 确保正确继承视图 -->
+        <record id="crm_case_form_view_oppor_inherit_checkout" model="ir.ui.view">
+            <field name="name">crm.lead.form.inherit.checkout</field>
+            <field name="model">crm.lead</field>
+            <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+            <field name="arch" type="xml">
+			
+
+				<!-- 隐藏 opportunity_partner 中的 partner_id -->
+				<xpath expr="//group[@name='opportunity_partner']/field[@name='partner_id']" position="attributes">
+					<attribute name="invisible">1</attribute>
+				</xpath>
+				<!-- 在 opportunity_partner 中新增 customer_name -->
+				<xpath expr="//group[@name='opportunity_partner']" position="inside">
+					<field name="customer_name" string="客戶名稱" placeholder="请输入客户名称..." required="1"/>
+				</xpath>
+				<xpath expr="//group[@name='opportunity_partner']" position="inside">
+					<field name="customclass_id" string="客戶分類"  required="1"/>
+				</xpath>
+				
+                <!-- 在 form/header 中插入按钮 -->
+                <xpath expr="//button[@name='action_sale_quotations_new']" position="replace">
+                    <button string="新增大圖訂單" name="action_open_checkout" type="object" class="oe_highlight" 
+						title="Create a new large picture order" 
+						context="{'customer_name': customer_name}"/>
+                </xpath>
+
+                <!-- 在“标签”字段后插入“开单人”字段 -->
+                <!-- <xpath expr="//field[@name='tag_ids']" position="after">
+                    <field name="kaidan" options="{'no_create': True, 'no_create_edit': True}" required="1"/>
+					<field name="checkout_id" invisible="1"/>
+                </xpath> -->
+				
+				<xpath expr="//button[@name='action_view_sale_quotation']" position="replace">
+					<button class="oe_stat_button" type="object"
+						name="action_view_related_checkout"
+						icon="fa-pencil-square-o"
+						attrs="{'invisible': [('type', '=', 'lead')]}">
+						<field name="checkout_count" widget="statinfo" string="大图订单"/>
+					</button>
+				</xpath>
+            </field>
+        </record>
+		
+		
+		<record id="crm_view_checkout_form" model="ir.ui.view">
+            <field name="name">dtsc.checkout.form</field>
+            <field name="model">dtsc.checkout</field>
+            <field name="inherit_id" ref="dtsc.view_checkout_form"/>
+            <field name="arch" type="xml">
+				<xpath expr="//field[@name='customer_id']" position="before">
+                    <field name="customer_temp_name" string="客户名称(临时)" placeholder="请输入客户名称"
+                        attrs="{'invisible': [('checkout_order_state', '!=', 'waiting_confirmation')]}"/>
+                </xpath>
+                <xpath expr="//field[@name='checkout_order_state']" position="attributes">
+					<attribute name="statusbar_visible">waiting_confirmation,draft,quoting,producing,finished,price_review_done,receivable_assigned,closed,cancel</attribute>
+				</xpath>
+				<xpath expr="//header" position="inside">
+					<!-- 添加确认按钮，仅在“待確認”状态下显示 -->
+					<button name="action_confirm_to_draft"
+							string="確認"
+							type="object"
+							class="oe_highlight"
+							attrs="{'invisible': [('checkout_order_state', '!=', 'waiting_confirmation')]}"/>
+				</xpath>
+            </field>
+        </record>
+		
+		<record id="action_checkout_tree_view" model="ir.actions.act_window">
+			<field name="name">大图订单</field>
+			<field name="res_model">dtsc.checkout</field>
+			<field name="view_mode">tree,form</field>
+			<field name="view_id" ref="dtsc.view_checkout_tree"/>
+			<!-- 默认排除 "待确认" 状态 -->
+			<field name="domain">[('checkout_order_state', '!=', 'waiting_confirmation')]</field>
+			<field name="context">{}</field>
+		</record>
+		
+		
+		<record id="quick_create_opportunity_form_inherit" model="ir.ui.view">
+			<field name="name">crm.lead.form.quick_create.inherit</field>
+			<field name="model">crm.lead</field>
+			<field name="inherit_id" ref="crm.quick_create_opportunity_form"/>
+			<field name="arch" type="xml">
+				<!-- 移除原有的 partner_id 字段 -->
+				<xpath expr="//field[@name='partner_id']" position="replace">
+					<!-- 添加新的字段 customer_name -->
+					<field name="customer_name" string="客戶名稱" placeholder="輸入客戶名稱..." required="1"/>
+				</xpath>
+			</field>
+		</record>
+
+		<record id="crm_case_tree_view_oppor_inherit" model="ir.ui.view">
+			<field name="name">crm.lead.tree.opportunity.inherit</field>
+			<field name="model">crm.lead</field>
+			<field name="inherit_id" ref="crm.crm_case_tree_view_oppor"/>
+			<field name="arch" type="xml">
+				<!-- 替换 contact_name 为 customer_name -->
+				<xpath expr="//field[@name='contact_name']" position="replace">
+					<field name="customer_name" string="客戶名稱" optional="show"/>
+				</xpath>
+			</field>
+		</record>
+		
+		<record id="crm_case_kanban_view_leads_inherit" model="ir.ui.view">
+			<field name="name">crm.lead.kanban.lead.inherit</field>
+			<field name="model">crm.lead</field>
+			<field name="inherit_id" ref="crm.crm_case_kanban_view_leads"/>
+			<field name="arch" type="xml">
+				<xpath expr="//div[@class='o_kanban_record_title oe_kanban_details']" position="inside">
+					<div>
+						<strong><field name="customer_name"/></strong>
+					</div>
+				</xpath>
+
+				<!-- 移除包含 partner_id 的 <div> -->
+				<xpath expr="//div[span[@t-esc='record.partner_id.value']]" position="replace">
+					<!-- 替换为空，删除该 <div> -->
+				</xpath>
+			</field>
+		</record>
+
+
+
+    </data>
+</odoo>

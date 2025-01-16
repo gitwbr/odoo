@@ -468,7 +468,7 @@
 										  <t t-foreach="o['invoice_ids']" t-as="order">
 											<t t-if="current_date and current_date != order['date']">
 											  <div class="subtotal-row">
-												<div style="width: 90%;">小計(<t t-esc="current_date"/>):</div>
+												<div style="width: 90%;border-right: 0;">小計(<t t-esc="current_date"/>):</div>
 												<div style="width: 10%;"><span t-esc="'{:,.0f}'.format(day_total)"/></div>
 											  </div>
 											  <t t-set="day_total" t-value="0"/>
@@ -493,13 +493,15 @@
 												<div style="width: 10%;"><span t-esc="'{:,.0f}'.format(abs(o['sale_price']))"/></div>
 											  </div> -->
 											  <div class="subtotal-row" style="display: flex;">
-												<div style="width: 15%; border-right: 1px solid white; text-align: left;">小計 (<t t-esc="current_date"/>):</div>
+												<!-- <div style="width: 15%; border-right: 1px solid white; text-align: left;">小計 (<t t-esc="current_date"/>):</div>
 												<div style="width: 15%; border-right: 1px solid white; text-align: center;"></div>
 												<div style="width: 30%; border-right: 1px solid white; text-align: center;"></div>
 												<div style="width: 6%;  border-right: 1px solid white; text-align: center;"></div>
 												<div style="width: 6%;  border-right: 1px solid white; text-align: center;"></div>
 												<div style="width: 6%;  border-right: 1px solid black; text-align: center;"></div>
-												<div style="width: 6%;  text-align: center;"><span t-esc="'{:,.0f}'.format(abs(o['sale_price']))"/></div>
+												<div style="width: 6%;  text-align: center;"><span t-esc="'{:,.0f}'.format(abs(o['sale_price']))"/></div> -->
+												<div style="width: 90%;border-right: 0;">小計(<t t-esc="current_date"/>):</div>
+												<div style="width: 610%;  text-align: center;"><span t-esc="'{:,.0f}'.format(abs(o['sale_price']))"/></div>
 											</div>
 											  <div class="table-summary">
 												未稅金額：<span t-esc="'{:,.0f}'.format(abs(o['sale_price']))" style="padding-right: 10px;"/> 

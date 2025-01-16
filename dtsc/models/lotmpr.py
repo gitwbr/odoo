@@ -9,7 +9,8 @@ from odoo.exceptions import UserError
 from dateutil.relativedelta import relativedelta
 import math
 from odoo.exceptions import UserError
-
+import pytz
+from pytz import timezone
 class LotMprScancode(models.Model):
     _name = "dtsc.lotmprscancode"
     
@@ -108,6 +109,49 @@ class LotMpr(models.Model):
     stock_move_line_id = fields.Many2many("stock.move.line")
     last_cai = fields.Char("剩餘才數",compute="_compute_last_cai")
     stock_location_id = fields.Many2one("stock.location", string="倉庫位置",compute="_compute_last_cai")
+    succ_date = fields.Date(string='完成時間')    
+    report_year = fields.Many2one("dtsc.year",string="年",compute="_compute_year_month",store=True)
+    report_month = fields.Many2one("dtsc.month",string="月",compute="_compute_year_month",store=True) 
+    
+    
+    @api.depends("succ_date")
+    def _compute_year_month(self):
+        invoice_due_date = self.env['ir.config_parameter'].sudo().get_param('dtsc.invoice_due_date')
+        for record in self:
+            if record.succ_date:
+                current_date = record.succ_date           
+                if current_date.day > int(invoice_due_date):
+                    if current_date.month == 12:
+                        next_date = current_date.replace(year=current_date.year + 1, month=1 ,day=1)
+                    else:
+                        next_date = current_date.replace(month=current_date.month + 1,day=1)
+                else:
+                    next_date = current_date
+                    
+                next_year_str = next_date.strftime('%Y')  # 两位数的年份
+                next_month_str = next_date.strftime('%m')  # 月份
+                
+                year_record = self.env['dtsc.year'].search([('name', '=', next_year_str)], limit=1)
+                month_record = self.env['dtsc.month'].search([('name', '=', next_month_str)], limit=1)
+
+                record.report_year = year_record.id if year_record else False
+                record.report_month = month_record.id if month_record else False
+            else:
+                record.report_year = False
+                record.report_month = False
+                
+    @api.depends()
+    def asyn_date(self):
+        active_ids = self._context.get('active_ids')
+        records = self.env["dtsc.lotmpr"].browse(active_ids)
+        
+        for record in records:
+            print(record.state)
+            if record.state == 'succ':
+                record.succ_date = record.write_date.date()
+            else:
+                record.succ_date = False
+                
     # stock_location_id_backup = fields.Many2one("stock.location", string="备选料倉庫位置",compute="_compute_stock_location_id_backup")
     
     # @api.depends('barcode_backup')
@@ -229,6 +273,13 @@ class LotMpr(models.Model):
         picking.action_assign()
         picking.button_validate() 
         self.write({'state': "succ"})
+        local_tz = pytz.timezone('Asia/Shanghai')  # 替換為你所在的時區
+        
+        today = datetime.now(local_tz).date()
+        self.succ_date = today
+        
+        
+        
         # quant = self.env["stock.quant"].search([('product_id' , "=" , self.product_id.id),("lot_id" ,"=" , self.product_lot.id),("location_id" ,"=" ,self.stock_location_id.id)],limit=1) #這裡出現的負數我用company_id隱藏，未來要修正
         
         

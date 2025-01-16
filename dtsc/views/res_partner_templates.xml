@@ -16,7 +16,7 @@
 		<field name="arch" type="xml">
 
 
-			<tree string="Contacts" sample="1" multi_edit="1">
+			<tree string="Contacts" sample="1" multi_edit="1" default_order="custom_id">
 				<field name="display_name" string="名稱"/>
 				<field name="function" invisible="1"/>
 				<field name="parent_id" invisible="1" readonly="1"/>

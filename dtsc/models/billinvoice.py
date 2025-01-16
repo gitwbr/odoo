@@ -187,7 +187,7 @@ class BillInvoice(models.Model):
             if record.sale_value > 0:
                 record.tax_value = int(record.sale_value * 0.05 + 0.5)
             elif record.sale_value < 0:
-                record.tax_value = int(record.sale_value * 0.05 - 0.5)
+                record.tax_value = -int(abs(record.sale_value * 0.05) + 0.5)
             else:
                 record.tax_value = 0
             
@@ -415,7 +415,7 @@ class AccountMove(models.Model):
             if record.amount_untaxed_signed > 0:
                 record.sale_price = int(record.amount_untaxed_signed + 0.5) #四舍五入
             elif record.amount_untaxed_signed < 0:
-                record.sale_price = int(record.amount_untaxed_signed - 0.5) #四舍五入
+                record.sale_price = -int(abs(record.amount_untaxed_signed) + 0.5) #四舍五入
             else:
                 record.sale_price = record.amount_untaxed_signed
                 
@@ -430,7 +430,7 @@ class AccountMove(models.Model):
                     if(record.sale_price > 0):
                         record.tax_price = int(record.sale_price * 0.05 + 0.5)
                     else:
-                        record.tax_price = int(record.sale_price * 0.05 - 0.5)
+                        record.tax_price = -int(abs(record.sale_price * 0.05) + 0.5)
                 else:
                     record.tax_price = 0
             elif record.move_type == "in_invoice":
@@ -438,7 +438,7 @@ class AccountMove(models.Model):
                     if(record.sale_price > 0):
                         record.tax_price = int(record.sale_price * 0.05 + 0.5)
                     else:
-                        record.tax_price = int(record.sale_price * 0.05 - 0.5)
+                        record.tax_price = -int(abs(record.sale_price * 0.05) + 0.5)
                 else:
                     record.tax_price = 0
             else:

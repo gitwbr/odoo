@@ -1,5 +1,17 @@
 <odoo>
-
+	<!-- <record id="action_lot_mpr" model="ir.actions.server"> -->
+		<!-- <field name="name">同步時間</field> -->
+		<!-- <field name="model_id" ref="model_dtsc_lotmpr"/> -->
+		<!-- <field name="state">code</field> -->
+		<!-- <field name="code"> -->
+			<!-- action = env['dtsc.lotmpr'].with_context(env.context).asyn_date() -->
+		<!-- </field> -->
+		<!-- <field name="binding_model_id" ref="model_dtsc_lotmpr"/> -->
+		<!-- <field name="binding_type">action</field> -->
+		<!-- <field name="binding_view_types">list</field> -->
+		
+        <!-- <field name="groups_id" eval="[(4, ref('dtsc.group_dtsc_mg'))]"/> -->
+	<!-- </record> -->
 	<record id="view_lotmprscancode_tree" model="ir.ui.view">
         <field name="name">dtsc.lotmprscancode.tree</field>
         <field name="model">dtsc.lotmprscancode</field>
@@ -19,6 +31,7 @@
         <field name="arch" type="xml">
             <tree create="false" delete="false">
 				<field name="name" />
+				<field name="succ_date" />
 				<field name="state" />
 				<field name="final_stock_num" /> 
             </tree>
@@ -30,6 +43,11 @@
 		<field name="model">dtsc.lotmpr</field>
 		<field name="arch" type="xml">
 			<search>
+				<searchpanel>
+					<field name="report_year" string="年"  select="multi"/>
+					<field name="report_month" string="月" context="{'group_by': 'report_year'}" select="multi"/>
+
+				</searchpanel>   
 				<filter string="已完成" name="succ_search" domain="[('state', '=', 'succ')]"/>
 			</search>
 		</field>		

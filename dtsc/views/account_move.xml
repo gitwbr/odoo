@@ -8,9 +8,9 @@
 				<!-- <field name="yw" readonly="1"/> -->
 			<!-- </xpath> -->
 			<xpath expr="//field[@name='amount_untaxed_signed']" position="after">
-				<field name="sale_price" class="w110" sum="Total"/>
-				<field name="tax_price" class="w110" sum="Total"/>
-				<field name="total_price" class="w110" sum="Total" />
+				<field name="sale_price" width="140px" sum="Total"/>
+				<field name="tax_price" width="140px" sum="Total"/>
+				<field name="total_price" width="140px" sum="Total" />
 			</xpath>
 			<xpath expr="//field[@name='name']" position="after">
 				<field name="pay_type"/>

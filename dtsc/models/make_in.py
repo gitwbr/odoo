@@ -380,13 +380,13 @@ class MakeIn(models.Model):
             product_product_obj = self.env['product.product']
             product_attribute_value_obj = self.env['product.attribute.value']
             
-            if "代施工" in self.project_name:
+            if self.project_name and "代施工" in self.project_name:
                 self.no_mprlist = True
                 return
             
             
             for record in self.order_ids:
-                if "代施工" in record.file_name:
+                if record.file_name and "代施工" in record.file_name:
                     continue
                 if record.product_id.make_ori_product_id:                    
                     if record.product_id.make_ori_product_id.tracking != "serial":

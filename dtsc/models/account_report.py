@@ -462,7 +462,13 @@ class AccountReport(models.AbstractModel):
                 company_detail["sale_price"] = sale_price
                 company_detail["tax_price"] = tax_price
                 company_detail["total_price"] = total_price
+                company_detail["invoice_ids"] = sorted(
+                    company_detail["invoice_ids"],
+                    key=lambda x: (x.get('delivery_date', datetime.min), x.get('in_out_id', float('inf')))
+                )
                 data["company_details"].append(company_detail)
+                
+
             else:
                 if select_company not in ["not_all"]:
                     company_id_list = self.env['res.partner'].search([('customer_rank', '>', 0)])

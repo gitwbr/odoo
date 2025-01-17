@@ -153,7 +153,7 @@ class CheckoutInherit(models.Model):
         """
         for record in self:
             if not record.customer_temp_name:
-                raise ValueError(_("客户名称不能为空"))
+                raise ValueError(("客户名称不能为空"))
 
             # 在客户列表中查找是否存在匹配的客户
             customer = self.env['res.partner'].search([('name', '=', record.customer_temp_name)], limit=1)

@@ -1,151 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
-	<!-- <record id="action_recomputer" model="ir.actions.server"> -->
-		<!-- <field name="name">重新計算名字</field> -->
-		<!-- <field name="model_id" ref="model_res_partner"/> -->
-		<!-- <field name="state">code</field> -->
-		<!-- <field name="code"> -->
-			<!-- action = env['res.partner'].with_context(env.context).recomputer() -->
-		<!-- </field> -->
-		<!-- <field name="binding_model_id" ref="model_res_partner"/> -->
-		<!-- <field name="binding_type">action</field> -->
-		<!-- <field name="binding_view_types">list</field> -->
-	<!-- </record> -->
-	<record id="view_partner_tree_supp" model="ir.ui.view">
-		<field name="name">res.partner.tree.supp</field>
-		<field name="model">res.partner</field>
-		<field name="arch" type="xml">
+	<data>
+		<record id="view_partner_tree_supp" model="ir.ui.view">
+			<field name="name">res.partner.tree.supp</field>
+			<field name="model">res.partner</field>
+			<field name="arch" type="xml">
+				<tree string="Contacts" sample="1" multi_edit="1" default_order="custom_id">
+					<field name="display_name" string="名稱"/>
+					<field name="function" invisible="1"/>
+					<field name="parent_id" invisible="1" readonly="1"/>
+					<field name="custom_init_name"/>
+					<field name="custom_id"/>
+					<field name="phone"/>
+				</tree>
+			</field>
+		</record>
 
+		<record id="view_partner_form_inherit" model="ir.ui.view">
+			<field name="name">res.partner.form.inherit</field>
+			<field name="model">res.partner</field>
+			<field name="inherit_id" ref="base.view_partner_form"/>
+			<field name="arch" type="xml">
+				<xpath expr="//div[@name='button_box']/button[1]" position="before">
+					<button class="oe_stat_button" type="action" 
+							name="%(dtsc.action_partner_quotation)d"
+							icon="fa-file-text-o"
+							attrs="{'invisible': [('supplier_rank','=', 0)]}">
+						<field name="quotation_count" widget="statinfo" string="報價"/>
+					</button>
+				</xpath>
+				<field name="vat" position="after">
+					<field name="supplier_rank" invisible="1"/>
+					<field name="quotation_count" invisible="1"/>
+				</field>
+			</field>
+		</record>
 
-			<tree string="Contacts" sample="1" multi_edit="1" default_order="custom_id">
-				<field name="display_name" string="名稱"/>
-				<field name="function" invisible="1"/>
-				<field name="parent_id" invisible="1" readonly="1"/>
-				<field name="custom_init_name"/>
-				<field name="custom_id"/>
-				<field name="phone"/>
-			</tree>
-
-		</field>	
-	</record>
-	
-	<record id="view_partner_tree_inherit" model="ir.ui.view">
-		<field name="name">res.partner.tree.inherit</field>
-		<field name="model">res.partner</field>
-		<field name="inherit_id" ref="base.view_partner_tree"/>
-		<field name="arch" type="xml">
-			<xpath expr="//tree" position="attributes">
-				<attribute name="default_order">custom_id</attribute>
-			</xpath>
-			<xpath expr="//field[@name='display_name']" position="after">
-				<field name="custom_init_name"/>
-				<field name="custom_id"/>
-			</xpath>
-			<xpath expr="//field[@name='email']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-			<xpath expr="//field[@name='activity_ids']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-			<xpath expr="//field[@name='city']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-			<xpath expr="//field[@name='country_id']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-			<xpath expr="//field[@name='user_id']" position="after">
-				<field name="supplier_rank" invisible="1"/>
-				<field name="sell_user"  widget="many2one_avatar_user" string="銷售員" attrs="{'column_invisible': [('supplier_rank','>', 0)]}"/>
-			</xpath>
-			<xpath expr="//field[@name='user_id']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-			<xpath expr="//field[@name='company_id']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-		</field>
-	</record>
-		
-		
-	<record id="view_partner_form_inherit" model="ir.ui.view">
-		<field name="name">res.partner.form.inherit</field>
-		<field name="model">res.partner</field>
-		<field name="inherit_id" ref="base.view_partner_form"/>
-		<field name="arch" type="xml">
-			<page name="contact_addresses" position="attributes">
-				<attribute name="autofocus" delete="1"/> 
-			</page>
-			<xpath expr="//page[@name='internal_notes']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-			<xpath expr="//page[@name='internal_notes']" position="after">
-				<page string="廠區備註" attrs="{'invisible': [('is_customer','!=', True)]}">
-					<group>
-						<field name="comment" colspan="2"  nolabel="1" placeholder="輸入廠區備註..."/>
-					</group>
-				</page>
-				<page string="客戶備註" attrs="{'invisible': [('is_customer','!=', True)]}">
-					<group>
-						<field name="comment_customer" colspan="2"  nolabel="1" placeholder="輸入客戶備註..."/>
-					</group>
-				</page>
-			</xpath>
-			<xpath expr="//notebook/page[1]" position="before">
-				<page string="其他資料維護" autofocus="autofocus">
-					<group>
-						<field name="customer_rank" invisible="1"/>
-						<field name="supplier_rank" invisible="1"/>
-						<field name="custom_init_name"/>
-						
-						<field name="is_customer"/>
-						<field name="is_supplier"/>
-					</group>
-					<group col="12">
-						<group string="通用資料" colspan="4">						
-							<field name="custom_id"/>
-							<field name="custom_fax"/>
-						</group>
-						<group string="銷售用資料" colspan="4" attrs="{'invisible': [('is_customer','!=', True)]}"> 
-						<!-- <group string="銷售用資料" colspan="4">  -->
-                            <field name="is_in_by_gly" invisible="1"/>
-                            <field name="is_in_by_yw" invisible="1"/>
-                            <field name="customclass_domain" invisible="1"/>
-							<field name="coin_can_cust"/>
-							<field name="sell_user"  string="銷售員" options="{'no_create': True, 'no_create_edit': True}" attrs="{'readonly': [('is_in_by_yw', '=', False)]}"/>
-							<field name="customclass_id" options="{'no_create': True, 'no_create_edit': True}" domain="[('id' , 'in' , customclass_domain )]"/>
-							<field name="custom_pay_mode"/>
-							<field name="custom_delivery_carrier"/>
-							<field name="custom_invoice_form"/>
-							<field name="custom_contact_person"/>
-							<field name="property_payment_term_id"/>
-							<field name="custom_search_email"/>
-							<field name="nop"/>
-							<field name="vip_path"/>
-							<!-- <field name="check_vip_path_exist" invisible="1"/> -->
-							<!-- <button name="create_vip_path" type="object" class="oe_highlight" string="建立資料夾" attrs="{'invisible':['|', ('check_vip_path_exist', '=', True), ('vip_path', '=', False)]}"/> -->
-							<field name="to_upload_file_required"/>
-						</group>
-						<group string="供應商資料" colspan="4" attrs="{'invisible': [('is_supplier','!=', True)]}"> 
-						<!-- <group string="銷售用資料" colspan="4">  -->
-							<field name="coin_can_supp"/>
-							<field name="supp_pay_mode"/>
-							<field name="supp_pay_type"/>
-							<field name="supp_invoice_addr"/>
-							<field name="supp_invoice_form"/>
-							<field name="purch_person"/>
-							<field name="invoice_person"/>
-							<field name="out_supp"/>
-							<field name="comment" placeholder="輸入廠區備註..." string="備註" widget="html"/>
-						</group>
-					</group>
-				</page>
-			</xpath>
-			<xpath expr="//field[@name='company_type']" position="attributes">
-				<attribute name="invisible">1</attribute>
-			</xpath>
-			<xpath expr="//field[@name='company_type']" position="attributes">
-				<attribute name="force_save">1</attribute>
-				<attribute name="widget">selection</attribute>
-			</xpath>
-		</field>
-	</record> 
+		<record id="action_partner_quotation" model="ir.actions.act_window">
+			<field name="name">供應商報價</field>
+			<field name="type">ir.actions.act_window</field>
+			<field name="res_model">product.supplierinfo</field>
+			<field name="view_mode">tree,form</field>
+			<field name="view_id" ref="dtsc.supplierinfo_tree"/>
+			<field name="domain">[('partner_id', '=', active_id)]</field>
+			<field name="context">{'default_partner_id': active_id}</field>
+		</record>
+	</data>
 </odoo>

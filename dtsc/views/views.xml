@@ -80,11 +80,11 @@
 	</record>
 
 	
-	<record model="ir.actions.act_window" id="dtsc.action_supplier">
+	<record id="action_supplier" model="ir.actions.act_window">
 		<field name="name">供應商</field>
 		<field name="res_model">res.partner</field>
 		<field name="view_mode">tree,form,kanban</field>
-		<field name="domain">[('supplier_rank','>',0)]</field>
+		<field name="domain">[('supplier_rank','&gt;',0)]</field>
 		<field name="context">{'default_is_supplier' : True}</field>
 		<field name="view_id" ref="dtsc.view_partner_tree_supp"/>
 	</record>

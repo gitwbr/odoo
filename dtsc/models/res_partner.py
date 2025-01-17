@@ -53,6 +53,7 @@ class ResPartner(models.Model):
     
     is_company = fields.Boolean(string='Is a Company', default=True,
         help="Check if the contact is a company, otherwise it is a person")
+    quotation_count = fields.Integer(string='報價', compute='_compute_quotation_count')
     custom_init_name = fields.Char("簡稱")
     
     custom_id = fields.Char("編號")
@@ -326,3 +327,10 @@ class ResPartner(models.Model):
                 name = f"{name} ({record.custom_id})"
             result.append((record.id, name))
         return result
+
+    @api.depends('supplier_rank')
+    def _compute_quotation_count(self):
+        for partner in self:
+            partner.quotation_count = self.env['product.supplierinfo'].search_count([
+                ('partner_id', '=', partner.id)
+            ])

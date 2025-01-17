@@ -87,14 +87,14 @@ class CheckoutInherit(models.Model):
     _inherit = 'dtsc.checkout'
 
     customer_temp_name = fields.Char(
-        string="客户名称", 
-        help="临时存储客户名称，从CRM中带过来，确认时检查或创建客户"
+        string="客戶名稱", 
+        help="臨時存儲客戶名稱，從CRM中帶過來，確認時檢查或創建客戶"
     )
 
     crm_lead_id = fields.Many2one(
         'crm.lead',
-        string="关联商机",
-        help="与此订单关联的商机"
+        string="關聯商機",
+        help="與此訂單關聯的商機"
     )
 
     checkout_order_state = fields.Selection(selection_add=[

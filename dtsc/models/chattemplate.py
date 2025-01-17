@@ -96,6 +96,8 @@ class CheckOutLine(models.Model):
     machineAndproduct = fields.Char("大小類別" ,store= True,compute="_compute_machine_and_product")    
     report_year = fields.Many2one("dtsc.year",string="年", related="checkout_product_id.report_year",store=True)
     report_month = fields.Many2one("dtsc.month",string="月", related="checkout_product_id.report_month",store=True)
+
+    
     @api.model
     def action_printexcel_machine(self):
         # print(self._context)

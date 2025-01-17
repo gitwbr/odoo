@@ -82,7 +82,23 @@ class CheckOut(models.Model):
     pinguan_sign = fields.Char("品管")
     daichuhuo_sign = fields.Char("待出貨")
     yichuhuo_sign = fields.Char("已出貨")
-
+    
+        
+    cai_done = fields.Float("已完成(才)",compute="_compute_cai_done",store=True)
+    cai_not_done = fields.Float("未完成(才)",compute="_compute_cai_done",store=True)
+    
+    @api.depends('outman')
+    def _compute_cai_done(self):
+        for record in self:
+            if record.outman:
+                record.cai_done = record.total_units
+                record.cai_not_done = 0
+            else:
+                record.cai_done = 0
+                record.cai_not_done = record.total_units
+                
+    
+    
 class MakeInLine(models.Model):
     _inherit = "dtsc.makeinline"  
     

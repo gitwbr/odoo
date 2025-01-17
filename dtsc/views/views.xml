@@ -243,6 +243,13 @@
 	  <field name="domain">[('picking_type_id.code', '=', 'internal')] </field>
 	  <field name="context">{'default_picking_type_id': 5}</field>  <!-- 传递操作类型的 内部調撥 -->
 	</record>
+	
+	<record model="ir.actions.act_window" id="dtsc.supp_price">
+      <field name="name">供應商價格表</field>
+      <field name="res_model">product.supplierinfo</field>
+      <field name="view_mode">tree,form</field>
+      <field name="view_id" ref="dtsc.supplierinfo_tree"/>
+	</record>
     
     <record model="ir.actions.act_window" id="dtsc.bh">
         <field name="name">補貨</field>
@@ -352,7 +359,8 @@
         <field name="name">機台出貨統計表</field>
 		<field name="res_model">dtsc.checkoutline</field>
 		<field name="view_mode">kanban,graph,tree</field>
-		<field name="domain">[('checkout_product_id.checkout_order_state','in',["price_review_done","receivable_assigned"])]</field>
+		<!-- <field name="domain">[('checkout_product_id.checkout_order_state','in',["price_review_done","receivable_assigned"])]</field> -->
+		<field name="domain">[('checkout_product_id.checkout_order_state','not in',["closed","cancel","waiting_confirmation"]),('checkout_product_id.is_invisible', '=', False)]</field>
 		<!-- <field name="context">{'group_by' : 'machine_id','search_default_custom_26_to_today': 1}</field> -->
 		<field name="view_id" ref="dtsc.report_checkoutline_machine"/>
 		<field name="search_view_id" ref="search_machine_checkoutline_report"/>
@@ -502,6 +510,7 @@
 	<menuitem id="fenleimuban" parent="dtsc.menu_setting" name="客戶分類模板" sequence="9" action="dtsc.custom_muban" groups="dtsc.group_dtsc_gly"/>
 	<menuitem id="qrcode_work" parent="dtsc.menu_setting" name="員工Qrcode" sequence="10" action="dtsc.qrcode_w" groups="dtsc.group_dtsc_gly"/>
 	<menuitem id="vatl" parent="dtsc.menu_setting" name="統編帳號密碼" sequence="11" action="dtsc.vat_login" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="gysjgbW" parent="dtsc.menu_setting" name="供應商價格表" sequence="12" action="dtsc.supp_price" groups="dtsc.group_dtsc_gly"/>
 	
 	
 	

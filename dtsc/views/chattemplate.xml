@@ -141,8 +141,10 @@
 			<tree>				
 				<field name="machine_id" string="機台" readonly="1"  />
 				<field name="estimated_date" readonly="1"  />
-				<field name="price" string="小計(金額)" readonly="1"  />
-				<field name="total_units" string="小計(才)" readonly="1"  />
+				<field name="cai_done" width="140px"  readonly="1"  />
+				<field name="cai_not_done" width="140px"  readonly="1"  />
+				<field name="price" string="小計(金額)" width="140px"  readonly="1"  />
+				<field name="total_units" string="小計(才)" width="140px"  readonly="1"  />
 
 
 			</tree>

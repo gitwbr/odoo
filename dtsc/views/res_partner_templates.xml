@@ -136,6 +136,18 @@
 				<attribute name="force_save">1</attribute>
 				<attribute name="widget">selection</attribute>
 			</xpath>
+			<xpath expr="//div[@name='button_box']/button[1]" position="before">
+				<button class="oe_stat_button" type="action" 
+						name="%(dtsc.action_partner_quotation)d"
+						icon="fa-file-text-o"
+						attrs="{'invisible': [('supplier_rank','=', 0)]}">
+					<field name="quotation_count" widget="statinfo" string="報價"/>
+				</button>
+			</xpath>
+			<field name="vat" position="after">
+				<field name="supplier_rank" invisible="1"/>
+				<field name="quotation_count" invisible="1"/>
+			</field>
 		</field>
 	</record> 
 	
@@ -154,27 +166,7 @@
 				</tree>
 			</field>
 		</record>
-
-		<record id="view_partner_form_inherit" model="ir.ui.view">
-			<field name="name">res.partner.form.inherit</field>
-			<field name="model">res.partner</field>
-			<field name="inherit_id" ref="base.view_partner_form"/>
-			<field name="arch" type="xml">
-				<xpath expr="//div[@name='button_box']/button[1]" position="before">
-					<button class="oe_stat_button" type="action" 
-							name="%(dtsc.action_partner_quotation)d"
-							icon="fa-file-text-o"
-							attrs="{'invisible': [('supplier_rank','=', 0)]}">
-						<field name="quotation_count" widget="statinfo" string="報價"/>
-					</button>
-				</xpath>
-				<field name="vat" position="after">
-					<field name="supplier_rank" invisible="1"/>
-					<field name="quotation_count" invisible="1"/>
-				</field>
-			</field>
-		</record>
-
+		
 		<record id="action_partner_quotation" model="ir.actions.act_window">
 			<field name="name">供應商報價</field>
 			<field name="type">ir.actions.act_window</field>
@@ -184,5 +176,27 @@
 			<field name="domain">[('partner_id', '=', active_id)]</field>
 			<field name="context">{'default_partner_id': active_id}</field>
 		</record>
+
+		<!-- <record id="view_partner_form_inherit" model="ir.ui.view"> -->
+			<!-- <field name="name">res.partner.form.inherit</field> -->
+			<!-- <field name="model">res.partner</field> -->
+			<!-- <field name="inherit_id" ref="base.view_partner_form"/> -->
+			<!-- <field name="arch" type="xml"> -->
+				<!-- <xpath expr="//div[@name='button_box']/button[1]" position="before"> -->
+					<!-- <button class="oe_stat_button" type="action"  -->
+							<!-- name="%(dtsc.action_partner_quotation)d" -->
+							<!-- icon="fa-file-text-o" -->
+							<!-- attrs="{'invisible': [('supplier_rank','=', 0)]}"> -->
+						<!-- <field name="quotation_count" widget="statinfo" string="報價"/> -->
+					<!-- </button> -->
+				<!-- </xpath> -->
+				<!-- <field name="vat" position="after"> -->
+					<!-- <field name="supplier_rank" invisible="1"/> -->
+					<!-- <field name="quotation_count" invisible="1"/> -->
+				<!-- </field> -->
+			<!-- </field> -->
+		<!-- </record> -->
+
+		
 	</data>
 </odoo>

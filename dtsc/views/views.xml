@@ -251,12 +251,21 @@
       <field name="view_id" ref="dtsc.supplierinfo_tree"/>
 	</record>
     
-    <record model="ir.actions.act_window" id="dtsc.bh">
+    <!-- <record model="ir.actions.act_window" id="dtsc.bh">
         <field name="name">補貨</field>
         <field name="res_model">stock.warehouse.orderpoint</field>
         <field name="view_mode">tree</field>
         <field name="view_id" ref="stock.view_warehouse_orderpoint_tree_editable"/>
         <field name="domain">[('trigger', '=', 'auto')]</field>
+		<field name="context">{'search_default_filter_to_reorder': 1}</field>
+    </record> -->
+	 <record model="ir.actions.act_window" id="dtsc.bh">
+        <field name="name">補貨</field>
+        <field name="res_model">stock.warehouse.orderpoint</field>
+        <field name="view_mode">tree</field>
+        <field name="view_id" ref="view_warehouse_orderpoint_tree_editable_inherit"/>
+        <field name="domain">[('trigger', '=', 'auto')]</field>
+        <field name="context">{'search_default_filter_to_reorder': 1}</field>
     </record>
 	
 	<record model="ir.actions.act_window" id="dtsc.in_mpr">

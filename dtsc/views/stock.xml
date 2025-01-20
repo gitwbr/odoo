@@ -209,4 +209,33 @@
 			</xpath>
 		</field>
 	</record>
+	
+	<!-- wbr補貨頁面 -->
+	<record id="view_warehouse_orderpoint_tree_editable_inherit" model="ir.ui.view">
+        <field name="name">stock.warehouse.orderpoint.tree.inherit</field>
+        <field name="model">stock.warehouse.orderpoint</field>
+        <field name="inherit_id" ref="stock.view_warehouse_orderpoint_tree_editable"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='supplier_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+			 <xpath expr="//field[@name='qty_to_order']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+			 <xpath expr="//field[@name='product_max_qty']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+			<xpath expr="//button[@name='action_product_forecast_report']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+			<xpath expr="//button[@name='action_replenish']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//button[@name='action_stock_replenishment_info']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+   
+	<!-- wbr補貨頁面 -->
 </odoo>

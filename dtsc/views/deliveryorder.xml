@@ -11,9 +11,9 @@
             <tree create="false" decoration-danger="install_state == 'cancel'">
 				<field name="name" readonly="1"/>
                 <field name="customer_name" readonly="1"/>
-                <field name="order_date" readonly="1"/>
+                <!-- <field name="order_date" readonly="1"/> -->
                 <field name="delivery_date" readonly="1"/>
-                <field name="install_state" readonly="1"/>
+                <field name="install_state" readonly="1"  invisible="1"/>
             </tree>
         </field>
     </record>
@@ -25,10 +25,10 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-					<button name="send_install_list" type="object" class="oe_highlight" string="發貨" attrs="{'invisible': [('install_state', 'in', ['cancel'])]}"/>
+					<!-- <button name="send_install_list" type="object" class="oe_highlight" string="發貨" attrs="{'invisible': [('install_state', 'in', ['cancel'])]}"/> -->
 					<button name="del_install_list" type="object" class="oe_highlight" string="作廢" confirm="是否確定作廢此出貨單？" attrs="{'invisible': [('install_state', 'in', ['cancel'])]}"/>
 					<button name="send_report_email" type="object" class="oe_highlight" string="發送郵件" />
-					<field name="install_state" widget="statusbar" statusbar_visible="draft,installing,cancel"/>
+					<field name="install_state" widget="statusbar" statusbar_visible="draft,installing,cancel"  invisible="1"/>
 				</header>
                 <sheet>
 					<!-- <div class="oe_title" style="text-align: center;"> -->
@@ -52,7 +52,7 @@
 							<field name="phone" />
 						</group>
 						<group colspan="2">
-							<field name="order_date" readonly="1"/>
+							<field name="order_date" readonly="1" invisible="1"/>
 							<field name="fax" />
 							<!-- <field name="factory" /> -->
 						</group><group colspan="2">

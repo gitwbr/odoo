@@ -5,7 +5,7 @@ from odoo.exceptions import UserError
 # _logger = logging.getLogger(__name__)
 class DeliveryOrder(models.Model):
     _name = 'dtsc.deliveryorder'
-    _order = 'order_date desc'
+    _order = 'name desc'
     install_state = fields.Selection([
         ("draft","草稿"),
         ("installing","已發送"),

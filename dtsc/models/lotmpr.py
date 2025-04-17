@@ -15,18 +15,12 @@ class LotMprScancode(models.Model):
     _name = "dtsc.lotmprscancode"
     
     barcode_input = fields.Char("條碼輸入") 
-    # errorlog = fields.Char(string="錯誤提示",default="",compute="_compute_errorlog")
- 
-    # def write(self, vals):
-        # 调用父类的 write 方法更新当前记录
-        # res = super(LotMprScancode, self).write(vals)
-        # for record in self:
-            # super(LotMprScancode, record).write({'barcode_input': ''})
-        # return res
-    # @api.depends("barcode_input")
-    # def _compute_errorlog(self):
-        # for record in self:
-            # self.errorlog = ""
+    
+    @api.onchange('barcode_input')
+    def _onchange_barcode_input(self):
+        if self.barcode_input:
+            self.barcode_input = self.barcode_input.lower()
+            
     def clean_view(self):
         self.barcode_input = ""
     def open_form_view(self):
@@ -34,16 +28,16 @@ class LotMprScancode(models.Model):
         # print(parts)
         if len(parts) > 2 and len(parts) < 4:
             # print(self.barcode_input)
-            stock_lot_obj = self.env['stock.lot'].search([('barcode', '=', self.barcode_input)],limit=1)
+            stock_lot_obj = self.env['stock.lot'].search([('barcode', '=ilike', self.barcode_input)],limit=1)
             if stock_lot_obj:
-                lotmprobj = self.env['dtsc.lotmpr'].search([('name', '=', self.barcode_input)],limit=1)
+                lotmprobj = self.env['dtsc.lotmpr'].search([('name', '=ilike', self.barcode_input)],limit=1)
                 formid = 0
                 if lotmprobj:
                     formid = lotmprobj.id
                 else:
                     # print(self.barcode_input)
                     obj = self.env['dtsc.lotmpr'].create({
-                       'name' : self.barcode_input, 
+                       'name' : stock_lot_obj.barcode, 
                        'product_id' : stock_lot_obj.product_id.id,
                        'product_lot' : stock_lot_obj.id,
                     })
@@ -99,9 +93,9 @@ class LotMpr(models.Model):
         ("succ","扣料完成"),   
     ],default='draft' ,string="狀態")
     product_lot = fields.Many2one("stock.lot" , "產品序號")
-    lot_stock_num = fields.Char(string = "庫存" ,compute='_compute_lot_stock_num') 
+    lot_stock_num = fields.Char(string = "庫存" ,compute='_compute_lot_stock_num'  ,store=True) 
     final_stock_num = fields.Char(string = "消耗率") 
-    uom_id = fields.Many2one(string = "單位" ,related='product_lot.product_uom_id') 
+    uom_id = fields.Many2one(string = "單位" ,related='product_id.uom_id') 
     total_size = fields.Float("基礎總才數",compute='_compute_lot_stock_num')
     picking_id = fields.Many2one("stock.picking")
     barcode_backup = fields.Char("備選料號條碼")
@@ -112,7 +106,9 @@ class LotMpr(models.Model):
     succ_date = fields.Date(string='完成時間')    
     report_year = fields.Many2one("dtsc.year",string="年",compute="_compute_year_month",store=True)
     report_month = fields.Many2one("dtsc.month",string="月",compute="_compute_year_month",store=True) 
+    # final_stock_num_test = fields.Float("11",compute="_compute_final_stock_num_test")
     
+ 
     
     @api.depends("succ_date")
     def _compute_year_month(self):
@@ -227,56 +223,64 @@ class LotMpr(models.Model):
             # obj = self.env["stock.lot"].search([('product_id', '=', self.barcode_input)])
     #完成按鈕
     def confirm_btn(self):
+
         quant = self.env["stock.quant"].search([('product_id' , "=" , self.product_id.id),("lot_id" ,"=" , self.product_lot.id),("location_id" ,"=" ,self.stock_location_id.id)],limit=1) #這裡出現的負數我用company_id隱藏，未來要修正
         self.write({'final_stock_num': str(round(quant.quantity,3))})        
-        picking = self.env['stock.picking'].create({
-            'picking_type_id' : 1,
-            'location_id': self.stock_location_id.id,  #库存
-            'location_dest_id': 15, #Production 用于生产
-            'origin' : self.name, 
-        })
-        self.picking_id = picking.id
-        move = self.env['stock.move'].create({
-            'name' : self.name,
-            'reference' : "捲料完成", 
-            'product_id': self.product_id.id,
-            'product_uom_qty' : quant.quantity,
-            'product_uom' : self.uom_id.id,
-            "picking_id" : picking.id,
-            "quantity_done" : quant.quantity,
-            'origin' : self.name,
-            'location_id': self.stock_location_id.id,  #库存
-            'location_dest_id': 15, #Production 用于生产                
-        })
-        self.stock_move_id = move.id
-        
-        # stock_lot_obj = self.env['stock.lot'].search([('barcode', '=', self.name)],limit=1)
-        move_line = self.env['stock.move.line'].create({
-            'reference' : "捲料完成"+self.name, 
-            'origin' : self.name,
-            "move_id": move.id, 
-            "picking_id" : picking.id,
-            'product_id': self.product_id.id,
-            'qty_done': quant.quantity ,
-            'product_uom_id' : self.uom_id.id,                
-            'location_id': self.stock_location_id.id,  #库存
-            'location_dest_id': 15, #Production 用于生产 
-            'lot_name' : self.product_lot.name,
-            'lot_id': self.product_lot.id,
-            'state': "draft", 
-        })                
-        self.stock_move_line_id = [(4, move_line.id)]
-        move_line_objs = self.env['stock.move.line'].search(["|",("lot_id" ,"=" , False ),("lot_name" ,"=" , False ),("product_id" , "=" ,self.product_id.id ),('picking_id',"=", picking.id)])
-        move_line_objs.unlink()
-        
-        picking.action_confirm()
-        picking.action_assign()
-        picking.button_validate() 
-        self.write({'state': "succ"})
-        local_tz = pytz.timezone('Asia/Shanghai')  # 替換為你所在的時區
-        
-        today = datetime.now(local_tz).date()
-        self.succ_date = today
+        if quant.quantity == 0:
+            self.write({'state': "succ"})
+            local_tz = pytz.timezone('Asia/Shanghai')  # 替換為你所在的時區
+            
+            today = datetime.now(local_tz).date()
+            self.succ_date = today
+        else:        
+            picking = self.env['stock.picking'].create({
+                'picking_type_id' : 1,
+                'location_id': self.stock_location_id.id,  #库存
+                'location_dest_id': 15, #Production 用于生产
+                'origin' : self.name, 
+            })
+            self.picking_id = picking.id
+            move = self.env['stock.move'].create({
+                'name' : self.name,
+                'reference' : "捲料完成", 
+                'product_id': self.product_id.id,
+                'product_uom_qty' : quant.quantity,
+                'product_uom' : self.uom_id.id,
+                "picking_id" : picking.id,
+                "quantity_done" : quant.quantity,
+                'origin' : self.name,
+                'location_id': self.stock_location_id.id,  #库存
+                'location_dest_id': 15, #Production 用于生产                
+            })
+            self.stock_move_id = move.id
+            
+            # stock_lot_obj = self.env['stock.lot'].search([('barcode', '=', self.name)],limit=1)
+            move_line = self.env['stock.move.line'].create({
+                'reference' : "捲料完成"+self.name, 
+                'origin' : self.name,
+                "move_id": move.id, 
+                "picking_id" : picking.id,
+                'product_id': self.product_id.id,
+                'qty_done': quant.quantity ,
+                'product_uom_id' : self.uom_id.id,                
+                'location_id': self.stock_location_id.id,  #库存
+                'location_dest_id': 15, #Production 用于生产 
+                'lot_name' : self.product_lot.name,
+                'lot_id': self.product_lot.id,
+                'state': "draft", 
+            })                
+            self.stock_move_line_id = [(4, move_line.id)]
+            move_line_objs = self.env['stock.move.line'].search(["|",("lot_id" ,"=" , False ),("lot_name" ,"=" , False ),("product_id" , "=" ,self.product_id.id ),('picking_id',"=", picking.id)])
+            move_line_objs.unlink()
+            
+            picking.action_confirm()
+            picking.action_assign()
+            picking.button_validate() 
+            self.write({'state': "succ"})
+            local_tz = pytz.timezone('Asia/Shanghai')  # 替換為你所在的時區
+            
+            today = datetime.now(local_tz).date()
+            self.succ_date = today
         
         
         
@@ -286,55 +290,59 @@ class LotMpr(models.Model):
     
     #恢復完成
     def back_btn(self):
-        reverse_picking_vals = {
-            'picking_type_id': self.picking_id.picking_type_id.id,
-            'location_id': self.picking_id.location_dest_id.id,
-            'location_dest_id': self.picking_id.location_id.id,
-            'origin': '退回完成捲料' + self.name,
-        }
-        reverse_picking = self.env['stock.picking'].create(reverse_picking_vals)
-        for move in self.picking_id.move_ids:        
-            reverse_move_vals = {
-                'name': move.name,
-                'reference': "退回完成捲料" + move.name,
-                'origin' : move.name,
-                'product_id': move.product_id.id,
-                'product_uom_qty': move.product_uom_qty,
-                'quantity_done': move.quantity_done,
-                'product_uom': move.product_uom.id,
-                'picking_id': reverse_picking.id,
-                'location_id': move.location_dest_id.id,
-                'location_dest_id': move.location_id.id,
+        if not self.picking_id:
+            self.write({'state': "draft"})
+            self.write({'final_stock_num': "-"})
+        else:
+            reverse_picking_vals = {
+                'picking_type_id': self.picking_id.picking_type_id.id,
+                'location_id': self.picking_id.location_dest_id.id,
+                'location_dest_id': self.picking_id.location_id.id,
+                'origin': '退回完成捲料' + self.name,
             }
-            reverse_move = self.env['stock.move'].create(reverse_move_vals)
-            # print(line.id)  
-            # 处理序列号
-            for move_line in move.move_line_ids:
-                if move_line.lot_id:
-                    # print(move_line.product_id.name)
-                    # print(move_line.lot_id.name)
-                    # print(move_line.lot_id.id)
-                    reverse_move_line_vals = {
-                        'reference' : "退回"+move.name, 
-                        'origin' : move.name,
-                        'move_id': reverse_move.id,
-                        'product_id': move_line.product_id.id,
-                        'product_uom_id': move_line.product_uom_id.id,
-                        'picking_id': reverse_picking.id,
-                        'reserved_uom_qty': move_line.qty_done,
-                        'qty_done': move_line.qty_done,
-                        'lot_id': move_line.lot_id.id,  # 指定序列号
-                        'location_id': move_line.location_dest_id.id,
-                        'location_dest_id': move_line.location_id.id,
-                    }
-                    moveline  = self.env['stock.move.line'].create(reverse_move_line_vals)
-                    move_line_objs = self.env['stock.move.line'].search([("product_id" , "=" ,move_line.product_id.id ),("lot_id" ,"=" , False ),('picking_id',"=", reverse_picking.id)])
-                    move_line_objs.unlink()
-        reverse_picking.action_confirm()
-        reverse_picking.action_assign()
-        reverse_picking.button_validate()
-        self.write({'state': "draft"})
-        self.write({'final_stock_num': "-"})
+            reverse_picking = self.env['stock.picking'].create(reverse_picking_vals)
+            for move in self.picking_id.move_ids:        
+                reverse_move_vals = {
+                    'name': move.name,
+                    'reference': "退回完成捲料" + move.name,
+                    'origin' : move.name,
+                    'product_id': move.product_id.id,
+                    'product_uom_qty': move.product_uom_qty,
+                    'quantity_done': move.quantity_done,
+                    'product_uom': move.product_uom.id,
+                    'picking_id': reverse_picking.id,
+                    'location_id': move.location_dest_id.id,
+                    'location_dest_id': move.location_id.id,
+                }
+                reverse_move = self.env['stock.move'].create(reverse_move_vals)
+                # print(line.id)  
+                # 处理序列号
+                for move_line in move.move_line_ids:
+                    if move_line.lot_id:
+                        # print(move_line.product_id.name)
+                        # print(move_line.lot_id.name)
+                        # print(move_line.lot_id.id)
+                        reverse_move_line_vals = {
+                            'reference' : "退回"+move.name, 
+                            'origin' : move.name,
+                            'move_id': reverse_move.id,
+                            'product_id': move_line.product_id.id,
+                            'product_uom_id': move_line.product_uom_id.id,
+                            'picking_id': reverse_picking.id,
+                            'reserved_uom_qty': move_line.qty_done,
+                            'qty_done': move_line.qty_done,
+                            'lot_id': move_line.lot_id.id,  # 指定序列号
+                            'location_id': move_line.location_dest_id.id,
+                            'location_dest_id': move_line.location_id.id,
+                        }
+                        moveline  = self.env['stock.move.line'].create(reverse_move_line_vals)
+                        move_line_objs = self.env['stock.move.line'].search([("product_id" , "=" ,move_line.product_id.id ),("lot_id" ,"=" , False ),('picking_id',"=", reverse_picking.id)])
+                        move_line_objs.unlink()
+            reverse_picking.action_confirm()
+            reverse_picking.action_assign()
+            reverse_picking.button_validate()
+            self.write({'state': "draft"})
+            self.write({'final_stock_num': "-"})
         
     #扣料動作
     def ok_btn(self):
@@ -415,6 +423,12 @@ class LotMpr(models.Model):
                                    'other_qty_done': other_qty_done,
                                    'is_other_stock': True,
                                 })
+                            #如果填了備選料，自動轉爲完成    
+                            self.write({'final_stock_num': '0'})   
+                            self.write({'state': "succ"})
+                            local_tz = pytz.timezone('Asia/Shanghai')  # 替換為你所在的時區
+                            today = datetime.now(local_tz).date()
+                            self.succ_date = today
                             
                         else:                            
                             raise ValidationError("未找到此條碼在庫存中!")
@@ -434,7 +448,7 @@ class LotMpr(models.Model):
             record.picking_id = picking.id
             move = self.env['stock.move'].create({
                 'name' : record.name,
-                'reference' : "工单扣料"+record.name, 
+                'reference' : "工單扣料"+record.name, 
                 'product_id': self.product_id.id,
                 'product_uom_qty' : qty_done_cai,
                 'product_uom' : uomid,
@@ -448,7 +462,7 @@ class LotMpr(models.Model):
             
             stock_lot_obj = self.env['stock.lot'].search([('barcode', '=', self.name)],limit=1)
             move_line = self.env['stock.move.line'].create({
-                'reference' : "工单扣料"+record.name, 
+                'reference' : "工單扣料"+record.name, 
                 'origin' : record.name,
                 "move_id": move.id, 
                 "picking_id" : picking.id,
@@ -481,7 +495,7 @@ class LotMprLine(models.Model):
     sccz = fields.Char("輸出材質", compute="_compute_sccz")
     make_ori_product_id = fields.Many2one("product.template",string="基礎扣料物")
     yujixiaohao = fields.Float("預計消耗" , compute="_compute_sccz" ,store = True)
-    shengyu = fields.Float("剩餘才數" , compute="_compute_shengyu" ) 
+    shengyu = fields.Float("剩餘才數" , compute="_compute_shengyu",store = True ) 
     is_other_stock = fields.Boolean(default=False)
     other_qty_done = fields.Float()
     state = fields.Selection([
@@ -493,6 +507,12 @@ class LotMprLine(models.Model):
     stock_move_line_id = fields.Many2many("stock.move.line")
     sjkl = fields.Float("實際消耗")
     comment = fields.Char("備註")
+    
+    @api.onchange('name')
+    def _onchange_name(self):
+        if self.name:
+            self.name = self.name.upper()
+    
     
     @api.constrains('name', 'lotmpr_id')
     def _check_name_unique(self):
@@ -633,6 +653,23 @@ class LotMprLine(models.Model):
             
     @api.depends("yujixiaohao")    
     def _compute_shengyu(self):
+        for record in self:
+            lotmpr = record.lotmpr_id
+            if lotmpr:
+                lot_stock_num = float(lotmpr.lot_stock_num) if lotmpr.lot_stock_num not in ['無', ''] else 0.0
+                tmp = lotmpr.total_size * lot_stock_num
+
+                for line in lotmpr.lotmprline_id:
+                    if line.state == "succ":
+                        line.shengyu = False
+                    else:
+                        if (tmp - line.yujixiaohao) < 0:
+                            line.shengyu = 0
+                            tmp = 0
+                        else:
+                            line.shengyu = tmp - line.yujixiaohao
+                            tmp = tmp - line.yujixiaohao
+        '''
         lot_stock_num = float(self.lotmpr_id.lot_stock_num) if self.lotmpr_id.lot_stock_num not in ['無', ''] else 0.0
         tmp = self.lotmpr_id.total_size * float(lot_stock_num)
        
@@ -647,7 +684,7 @@ class LotMprLine(models.Model):
                 else:
                     record.shengyu = tmp - record.yujixiaohao
                     tmp = tmp - record.yujixiaohao
-            
+        '''    
                 
             
     @api.depends("name")
@@ -704,6 +741,7 @@ class LotMprLine(models.Model):
         return res
 
     def write(self, vals):
+        # print(vals)
         if self.lotmpr_id.state == 'succ':
             raise UserError('不允許在此狀態下修改記錄。')
         # 删除name字段为空的记录

@@ -19,31 +19,66 @@
 		<field name="name">dtsc.vatlogin.tree</field>
 		<field name="model">dtsc.vatlogin</field>
 		<field name="arch" type="xml">
-			<tree>				
+			<tree default_order="custom_id">				
 				<field name="partner_id"/>
+				<field name="custom_id" />
 				<field name="vat"/>
 				<field name="vat_password"/>
 
 			</tree>
 		</field>	
 	</record>
-	
+	<record id="search_vatlogin" model="ir.ui.view">
+		<field name="name">dtsc.vatlogin.search</field>
+		<field name="model">dtsc.vatlogin</field>
+		<field name="arch" type="xml">
+			<search>
+				<field name="search_line" string="所有訊息"/>	
+				
+			</search>
+		</field>		
+	</record>
+	<record id="report_worktime_treee" model="ir.ui.view">
+		<field name="name">dtsc.worktime.tree</field>
+		<field name="model">dtsc.worktime</field>
+		<field name="arch" type="xml">
+			<tree>	 			
+				<field name="name"  readonly="1" />
+				<field name="start_time" readonly="1"  />
+				<field name="end_time" readonly="1"  />
+				<field name="seqname" readonly="1"  />
+				<field name="work_type" readonly="1"  />
+				<field name="in_out_type" readonly="1"  />
+				<field name="cai_done" readonly="1" sum="才數" />
+			</tree>
+		</field>	
+	</record>
+	<record id="search_worktime" model="ir.ui.view">
+		<field name="name">dtsc.worktime.search</field>
+		<field name="model">dtsc.worktime</field>
+		<field name="arch" type="xml">
+			<search>
+				<searchpanel>
+					<field name="report_year" string="年"  select="multi"/>
+					<field name="report_month" string="月" context="{'group_by': 'report_year'}" select="multi"/>
 
-
+				</searchpanel>
+				<filter string="結束時間" name="group_by_end_time" domain="[]" context="{'group_by': 'end_time'}"/>	
+				<filter string="工種類型" name="group_by_in_out_type" domain="[]" context="{'group_by': 'in_out_type'}"/>	
+				<filter string="員工姓名" name="group_by_name" domain="[]" context="{'group_by': 'name'}"/>	
+			</search>
+		</field>		
+	</record>
 	<record id="report_workqrcode_treee" model="ir.ui.view">
 		<field name="name">dtsc.workqrcode.report.tree</field>
 		<field name="model">dtsc.workqrcode</field>
 		<field name="arch" type="xml">
-			<tree>	 			
+			<tree editable="bottom">	 			
 				<field name="name"  readonly="1"  />
-				<!-- <field name="gonghao"  readonly="1"  /> -->
-				<!-- <field name="is_iq"  readonly="1"  /> -->
-				<!-- <field name="is_cx"  readonly="1"  /> -->
-				<!-- <field name="is_sc"  readonly="1"  /> -->
-				<!-- <field name="is_hz"  readonly="1"  /> -->
-				<!-- <field name="is_pg"  readonly="1"  /> -->
-				<!-- <field name="is_cz"  readonly="1"  /> -->
 				<field name="bar_image"  widget="image" readonly="1"  />
+				<field name="is_zg" />
+				<field name="is_qh" />
+				<field name="line_user_id" />
 
 			</tree>
 		</field>	
@@ -101,7 +136,7 @@
 								<t t-esc="line.product_width" />x<t t-esc="line.product_height" />
 							</td>
 							<!-- 定义状态分组 -->
-							<t t-set="groups" t-value="{'生產中': ['outman', 'lengbiao_sign', 'guoban_sign', 'caiqie_sign'], '待出貨': ['pinguan_sign','daichuhuo_sign'], '已出貨': ['yichuhuo_sign']}"/>
+							<t t-set="groups" t-value="{'生產中': ['outman', 'lengbiao_sign', 'guoban_sign', 'caiqie_sign', 'houzhi_sign'], '待出貨': ['pinguan_sign','daichuhuo_sign'], '已出貨': ['yichuhuo_sign']}"/>
 							<t t-set="last_active_group" t-value="None"/>
 
 							<!-- 查找最后一个有值的状态分组 -->

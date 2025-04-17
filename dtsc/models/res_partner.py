@@ -131,6 +131,7 @@ class ResPartner(models.Model):
     is_in_by_gly = fields.Boolean(compute='_compute_is_in_by_gly', default=True)
     is_in_by_yw = fields.Boolean(compute='_compute_is_in_by_yw', default=True)
     meeting_count = fields.Integer(store=False,default=0)
+    is_sign_mode = fields.Boolean("主管簽核")	
  
     # @api.model
     # def export_data(self, fields_to_export):

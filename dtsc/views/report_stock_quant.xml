@@ -1,44 +1,6 @@
 <odoo>
     <data>
-		
-        <!-- <template id="report_inventory"> -->
-            <!-- <t t-call="web.html_container"> -->
-                <!-- <t t-call="web.external_layout"> -->
-                    <!-- <div class="page"> -->
-                        <!-- <h2>库存盤點</h2> -->
-						<!-- <t t-set="locations" t-value="docs.mapped('location_id')"/> -->
-                        <!-- <table class="table table-sm"> -->
-                            <!-- <thead> -->
-                                <!-- <tr> -->
-									<!-- <th groups="stock.group_stock_multi_locations"><strong>位置</strong></th> -->
-                                    <!-- <th><strong>產品</strong></th> -->
-                                    <!-- <th class="text-end"><strong>在庫数量</strong></th> -->
-                                    <!-- <th class="text-end"><strong>度量單位</strong></th> -->
-                                <!-- </tr> -->
-                            <!-- </thead> -->
-                            <!-- <tbody> -->
-								<!-- <t t-foreach="locations" t-as="location"> -->
-                                    <!-- <tr groups="stock.group_stock_multi_locations"> -->
-                                        <!-- <td colspan="2"><strong t-esc="location.display_name"/></td> -->
-                                        <!-- <td groups="stock.group_production_lot"></td> -->
-                                        <!-- <td groups="stock.group_tracking_lot"></td> -->
-                                        <!-- <td></td> -->
-                                    <!-- </tr> -->
-									<!-- <t t-foreach="data" t-as="line"> -->
-										<!-- <tr> -->
-											<!-- <td groups="stock.group_stock_multi_locations"></td> -->
-											<!-- <td><span t-esc="line['product_id'].display_name"/></td> -->
-											<!-- <td class="text-end"><span t-esc="line['quantity']"/></td> -->
-											<!-- <td class="text-end"><span t-esc="line['uom']"/></td> -->
-										<!-- </tr> -->
-									<!-- </t> -->
-								<!-- </t> -->
-                            <!-- </tbody> -->
-                        <!-- </table> -->
-                    <!-- </div> -->
-                <!-- </t> -->
-            <!-- </t> -->
-        <!-- </template>    -->
+
 		<template id="report_inventory">
             <t t-call="web.html_container">
                 <t t-call="web.external_layout">
@@ -48,38 +10,43 @@
 					}
 					</style> -->
                     <div class="page">
-                        <h2>庫存表</h2>
+                        
+						<h5 style="display: flex; justify-content: space-between; align-items: center;">
+								<span>庫存表</span>
+								<div style="text-align: right;">
+									<span>日期:</span>
+									<span><t t-esc="date"/></span>
+								</div>
+							</h5>
 						<t t-set="locations" t-value="docs.mapped('location_id')"/>
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-									<th groups="stock.group_stock_multi_locations"><strong>位置</strong></th>
-                                    <th><strong>產品</strong></th>
-                                    <th class="text-end"><strong>在庫数量</strong></th>
-                                    <th class="text-end"><strong>度量單位</strong></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-								<t t-foreach="locations" t-as="location">
-                                    <tr groups="stock.group_stock_multi_locations">
-                                        <td colspan="2"><strong t-esc="location.name"/></td>
-                                        <td groups="stock.group_production_lot"></td>
-                                        <td groups="stock.group_tracking_lot"></td>
-                                        <td></td>
-                                    </tr>
-									<t t-foreach="data" t-as="line">
-										<t t-if="line['location'] == location.name">
-											<tr>
-												<td></td> <!-- 留空，避免重复显示仓库名称 -->
-												<td><span t-esc="line['product_id'].display_name"/></td> <!-- 产品名称 -->
-												<td class="text-end"><span t-esc="line['quantity']"/></td> <!-- 产品数量 -->
-												<td class="text-end"><span t-esc="line['uom']"/></td> <!-- 度量单位 -->
-											</tr>
-										</t>
-									</t>
-								</t>
-                            </tbody>
-                        </table>
+                        
+                        <!-- 表头 -->
+                        <div class="report-header" style="display: flex; font-weight: bold; border-top: 1px solid #dee2e6; border-bottom: 2px solid #dee2e6; padding: 8px 0;">
+                            <div groups="stock.group_stock_multi_locations" style="flex: 1;"><strong>位置</strong></div>
+                            <div style="flex: 2;"><strong>產品</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>在庫数量</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>度量單位</strong></div>
+                        </div>
+
+                        <!-- 内容区域 -->
+                        <t t-foreach="locations" t-as="location">
+                            <!-- 位置标题 -->
+                            <div groups="stock.group_stock_multi_locations" style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                <div style="flex: 4;"><strong t-esc="location.name"/></div>
+                            </div>
+                            
+                            <!-- 产品列表 -->
+                            <t t-foreach="data" t-as="line">
+                                <t t-if="line['location'] == location.name">
+                                    <div style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                        <div style="flex: 1;"></div>
+                                        <div style="flex: 2;"><span t-esc="line['product_id'].display_name"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="round(line['quantity'],2)"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="line['uom']"/></div>
+                                    </div>
+                                </t>
+                            </t>
+                        </t>
                     </div>
                 </t>
             </t>
@@ -88,181 +55,115 @@
 
 
         <template id="report_inventory_amount">
-			<t t-call="web.html_container"> 
-					<t t-call="web.external_layout">
-						<div class="page">
-							<h2>庫存表(金額)</h2>
-							<t t-set="locations" t-value="docs.mapped('location_id')"/>
-							<table class="table table-sm">
-								<thead>
-									<tr>
-										<th groups="stock.group_stock_multi_locations"><strong>位置</strong></th>
-										<th><strong>產品</strong></th>
-										<th class="text-end"><strong>在庫数量</strong></th>
-										<th class="text-end"><strong>度量單位</strong></th>
-										<th class="text-end"><strong>平均采購價格</strong></th> 
-										<th class="text-end"><strong>成本</strong></th>
-									</tr>
-								</thead>
-								<tbody>
-									<t t-foreach="locations" t-as="location">
-										<tr groups="stock.group_stock_multi_locations">
-											<td colspan="5"><strong t-esc="location.name"/></td>
-											<td groups="stock.group_production_lot"></td>
-											<td groups="stock.group_tracking_lot"></td>
-											<td></td>
-										</tr>
-										<t t-foreach="data" t-as="line">
-											<t t-if="line['location'] == location.name">
-												<tr>
-													<td></td> <!-- 留空，避免重复显示仓库名称 -->
-													<td><span t-esc="line['product_id'].display_name"/></td> <!-- 产品名称 -->
-													<td class="text-end"><span t-esc="line['quantity']"/></td> <!-- 产品数量 -->
-													<td class="text-end"><span t-esc="line['uom']"/></td> <!-- 度量单位 -->
-													<td class="text-end"><span t-esc="line['average_price']"/></td> <!-- 度量单位 -->
-													<td class="text-end"><span t-esc="line['total_value']"/></td> <!-- 度量单位 -->
-												</tr>
-											</t>
-										</t>
-										<tr>
-											<td colspan="5" class="text-end"><strong>小計：</strong></td>
-											<td class="text-end"><t t-esc="round(sum(line['total_value'] for line in data if line['location'] == location.name), 2)"/></td>
-										</tr>
-									</t>
-								</tbody>
-							</table>
-						</div>
-					</t>
-				</t>
-            <!-- <t t-call="web.html_container"> -->
-                <!-- <t t-call="web.external_layout"> -->
-                    <!-- <div class="page"> -->
-                        <!-- <h2>库存盤點</h2> -->
-                        <!-- <table class="table table-sm"> -->
-                            <!-- <thead> -->
-                                <!-- <tr> -->
-                                    <!-- <th><strong>產品</strong></th> -->
-                                    <!-- <th class="text-end"><strong>在庫数量</strong></th> -->
-                                    <!-- <th class="text-end"><strong>度量單位</strong></th> -->
-                                    <!-- <th class="text-end"><strong>平均采購價格</strong></th> -->
-                                    <!-- <th class="text-end"><strong>成本</strong></th> -->
-                                <!-- </tr> -->
-                            <!-- </thead> -->
-                            <!-- <tbody> -->
-                                <!-- <t t-foreach="data" t-as="line"> -->
-                                    <!-- <tr> -->
-                                        <!-- <td><span t-esc="line['product_id'].display_name"/></td> -->
-                                        <!-- <td class="text-end"><span t-esc="line['quantity']"/></td> -->
-                                        <!-- <td class="text-end"><span t-esc="line['uom']"/></td> -->
-                                        <!-- <td class="text-end"><span t-esc="line['average_price']"/></td> -->
-                                        <!-- <td class="text-end"><span t-esc="line['total_price']"/></td> -->
-                                    <!-- </tr> -->
-                                <!-- </t> -->
-                                
-                                 <!-- <tr> -->
-                                    <!-- <td colspan="4" class="text-end"><strong>小計：</strong></td> -->
-                                    <!-- <td class="text-end"><t t-esc="sum(line['total_price'] for line in data)"/></td> -->
-                                <!-- </tr> -->
-                            <!-- </tbody> -->
-                        <!-- </table> -->
-                    <!-- </div> -->
-                <!-- </t> -->
-            <!-- </t> -->
+            <t t-call="web.html_container"> 
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h5 style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>庫存表(金額)</span>
+                            <div style="text-align: right;">
+                                <span>日期:</span>
+                                <span><t t-esc="date"/></span>
+                            </div>
+                        </h5>
+                        <t t-set="locations" t-value="docs.mapped('location_id')"/>
+                        
+                        <!-- 表头 -->
+                        <div class="report-header" style="display: flex; font-weight: bold; border-top: 1px solid #dee2e6; border-bottom: 2px solid #dee2e6; padding: 8px 0;">
+                            <div groups="stock.group_stock_multi_locations" style="flex: 1;"><strong>位置</strong></div>
+                            <div style="flex: 2;"><strong>產品</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>在庫数量</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>度量單位</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>平均采購價格</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>成本</strong></div>
+                        </div>
+
+                        <!-- 内容区域 -->
+                        <t t-foreach="locations" t-as="location">
+                            <!-- 位置标题 -->
+                            <div groups="stock.group_stock_multi_locations" style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                <div style="flex: 7;"><strong t-esc="location.name"/></div>
+                            </div>
+                            
+                            <!-- 产品列表 -->
+                            <t t-foreach="data" t-as="line">
+                                <t t-if="line['location'] == location.name">
+                                    <div style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                        <div style="flex: 1;"></div>
+                                        <div style="flex: 2;"><span t-esc="line['product_id'].display_name"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="round(line['quantity'],2)"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="line['uom']"/></div>
+                                        <!-- <div style="flex: 1; text-align: right;"><span t-esc="round(line['average_price'],2)"/></div> -->
+                                        <!-- <div style="flex: 1; text-align: right;"><span t-esc="round(line['total_value'],2)"/></div> -->
+                                        <div style="flex: 1; text-align: right;"><span t-esc="'{:,.0f}'.format(round(line['average_price'],2))"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="'{:,.0f}'.format(round(line['total_value'],2))"/></div>
+                                    </div>
+                                </t>
+                            </t>
+                            <!-- 小计行 -->
+                            <div style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                <div style="flex: 6; text-align: right;"><strong>小計：</strong></div>
+                                <div style="flex: 1; text-align: right;"><t t-esc="round(sum(line['total_value'] for line in data if line['location'] == location.name), 2)"/></div>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+            </t>
         </template>
         <template id="report_inventory_base">
-            			<t t-call="web.html_container"> 
-					<t t-call="web.external_layout">
-						<div class="page">
-							<h2>庫存表-展開</h2>
-							<t t-set="locations" t-value="docs.mapped('location_id')"/>
-							<table class="table table-sm">
-								<thead>
-									<tr>
-										<th groups="stock.group_stock_multi_locations"><strong>位置</strong></th>
-										<th><strong>產品</strong></th>
-										<th><strong>序號</strong></th>
-										<th class="text-end"><strong>在庫数量</strong></th>
-										<th class="text-end"><strong>度量單位</strong></th>
-										<th class="text-end"><strong>平均采購價格</strong></th> 
-										<th class="text-end"><strong>成本</strong></th>
-									</tr>
-								</thead>
-								<tbody>
-									<t t-foreach="locations" t-as="location">
-										<tr groups="stock.group_stock_multi_locations">
-											<td colspan="6"><strong t-esc="location.name"/></td>
-											<td groups="stock.group_production_lot"></td>
-											<td groups="stock.group_tracking_lot"></td>
-											<td></td>
-										</tr>
-										<t t-foreach="data" t-as="line">
-											<t t-if="line['location'] == location.name">
-												<tr>
-													<td></td> <!-- 留空，避免重复显示仓库名称 -->
-													<td><span t-esc="line['product_id'].display_name"/></td> <!-- 产品名称 -->
-													<td class="text-end"><span t-esc="line['lot_id']"/></td> <!-- 序號 -->
-													<td class="text-end"><span t-esc="line['quantity']"/></td> <!-- 产品数量 -->
-													<td class="text-end"><span t-esc="line['uom']"/></td> <!-- 度量单位 -->
-													<td class="text-end"><span t-esc="line['average_price']"/></td> <!-- 度量单位 -->
-													<td class="text-end"><span t-esc="line['total_value']"/></td> <!-- 度量单位 -->
-												</tr>
-											</t>
-										</t>
-										<tr>
-											<td colspan="6" class="text-end"><strong>小計：</strong></td>
-											<td class="text-end"><t t-esc="round(sum(line['total_value'] for line in data if line['location'] == location.name), 2)"/></td>
-										</tr>
-									</t>
-								</tbody>
-							</table>
-						</div>
-					</t>
-				</t>
-			<!-- <t t-call="web.html_container"> -->
-                <!-- <t t-call="web.external_layout"> -->
-                    <!-- <div class="page"> -->
-                        <!-- <br/> -->
-                        <!-- <h2>庫存盤點表</h2> -->
-                        <!-- <t t-set="locations" t-value="docs.mapped('location_id')"/> -->
-                        <!-- <table class="table table-sm"> -->
-                            <!-- <thead> -->
-                                <!-- <tr> -->
-                                    <!-- <th groups="stock.group_stock_multi_locations"><strong>位置</strong></th> -->
-                                    <!-- <th><strong>產品</strong></th> -->
-                                    <!-- <th groups="stock.group_production_lot"><strong>批次/序號</strong></th> -->
-                                    <!-- <th groups="stock.group_tracking_lot"><strong>Package</strong></th> -->
-                                    <!-- <th class="text-end"><strong>現有產品數量</strong></th> -->
-                                    <!-- <th class="text-end"><strong>盤點數量</strong></th> -->
-                                    <!-- <th class="text-end"><strong>采购价格</strong></th>  -->
-                                <!-- </tr> -->
-                            <!-- </thead> -->
-                            <!-- <tbody> -->
-                                <!-- <t t-foreach="locations" t-as="location"> -->
-                                    <!-- <tr groups="stock.group_stock_multi_locations"> -->
-                                        <!-- <td colspan="2"><strong t-esc="location.display_name"/></td> -->
-                                        <!-- <td groups="stock.group_production_lot"></td> -->
-                                        <!-- <td groups="stock.group_tracking_lot"></td> -->
-                                        <!-- <td></td> -->
-                                    <!-- </tr> -->
-                                    <!-- <tr t-foreach="docs.filtered(lambda quant: quant.location_id.id == location.id)" t-as="line"> -->
-                                        <!-- <td groups="stock.group_stock_multi_locations"></td> -->
-                                        <!-- <td><span t-field="line.product_id"/></td> -->
-                                        <!-- <td groups="stock.group_production_lot"><span t-field="line.lot_id"/></td> -->
-                                        <!-- <td groups="stock.group_tracking_lot"><span t-field="line.package_id"/></td> -->
-                                        <!-- <td class="text-end"><span t-field="line.quantity"/> <span t-field="line.product_uom_id" groups="uom.group_uom"/></td> -->
-                                        <!-- <td class="text-end"> -->
-                                            <!-- <t t-if="line.inventory_quantity == 0"><span></span></t> -->
-                                            <!-- <t t-else=""><span t-field="line.inventory_quantity"/></t> -->
-                                            <!-- <span t-field="line.product_uom_id" groups="uom.group_uom"/> -->
-                                        <!-- </td> -->
-                                       <!-- <td class="text-end"><span t-esc="line.purchase_price"/></td> -->
-                                    <!-- </tr> -->
-                                <!-- </t> -->
-                            <!-- </tbody> -->
-                        <!-- </table> -->
-                    <!-- </div> -->
-                <!-- </t> -->
-            <!-- </t> -->
+            <t t-call="web.html_container"> 
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h5 style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>庫存表(展開)</span>
+                            <div style="text-align: right;">
+                                <span>日期:</span>
+                                <span><t t-esc="date"/></span>
+                            </div>
+                        </h5>
+                        <t t-set="locations" t-value="docs.mapped('location_id')"/>
+                        
+                        <!-- 表头 -->
+                        <div class="report-header" style="display: flex; font-weight: bold; border-top: 1px solid #dee2e6; border-bottom: 2px solid #dee2e6; padding: 8px 0;">
+                            <div groups="stock.group_stock_multi_locations" style="flex: 1;"><strong>位置</strong></div>
+                            <div style="flex: 2;"><strong>產品</strong></div>
+                            <div style="flex: 1;"><strong>序號</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>在庫数量</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>度量單位</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>平均采購價格</strong></div>
+                            <div style="flex: 1; text-align: right;"><strong>成本</strong></div>
+                        </div>
+
+                        <!-- 内容区域 -->
+                        <t t-foreach="locations" t-as="location">
+                            <!-- 位置标题 -->
+                            <div groups="stock.group_stock_multi_locations" style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                <div style="flex: 8;"><strong t-esc="location.name"/></div>
+                            </div>
+                            
+                            <!-- 产品列表 -->
+                            <t t-foreach="data" t-as="line">
+                                <t t-if="line['location'] == location.name">
+                                    <div style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                        <div style="flex: 1;"></div>
+                                        <div style="flex: 2;"><span t-esc="line['product_id'].display_name"/></div>
+                                        <div style="flex: 1;"><span t-esc="line['lot_id']"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="round(line['quantity'],2)"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="line['uom']"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="'{:,.0f}'.format(round(line['average_price'],2))"/></div>
+                                        <div style="flex: 1; text-align: right;"><span t-esc="'{:,.0f}'.format(round(line['total_value'],2))"/></div>
+                                        <!-- <div style="flex: 1; text-align: right;"><span t-esc=""/></div> -->
+                                    </div>
+                                </t>
+                            </t>
+                            <!-- 小计行 -->
+                            <div style="display: flex; border-bottom: 1px solid #dee2e6; padding: 8px 0; page-break-inside: avoid;">
+                                <div style="flex: 7; text-align: right;"><strong>小計：</strong></div>
+                                <div style="flex: 1; text-align: right;"><t t-esc="round(sum(line['total_value'] for line in data if line['location'] == location.name), 2)"/></div>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+            </t>
         </template>
     </data>
 </odoo>

@@ -49,6 +49,7 @@
 
 				</searchpanel>   
 				<filter string="已完成" name="succ_search" domain="[('state', '=', 'succ')]"/>
+				<field name="name" string="條碼名稱"/>
 			</search>
 		</field>		
 	</record>
@@ -77,6 +78,7 @@
 							<field name="last_cai" readonly="1"/>
 							<field name="lot_stock_num" readonly="1"/>
 							<field name="final_stock_num" readonly="1"/>
+							<!-- <field name="final_stock_num_test"/> -->
 						</group>
 					</group>
 					<field name="lotmprline_id" >

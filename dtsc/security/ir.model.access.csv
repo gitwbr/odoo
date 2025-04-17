@@ -29,6 +29,8 @@ access_dtsc_quotation,dtsc.quotation,model_dtsc_quotation,base.group_user,1,1,1,
 access_dtsc_quotationproductattributeprice,dtsc.quotationproductattributeprice,model_dtsc_quotationproductattributeprice,base.group_user,1,1,1,1
 access_dtsc_department,dtsc.department,model_dtsc_department,dtsc.group_dtsc_bs,1,1,0,0
 access_dtsc_accountreportwizard,dtsc.accountreportwizard,model_dtsc_accountreportwizard,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_maketypeselection,dtsc.maketypeselection,model_dtsc_maketypeselection,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_stockreportwizard,dtsc.stockreportwizard,model_dtsc_stockreportwizard,dtsc.group_dtsc_bs,1,1,1,1
 access_dtsc_usertype,dtsc.usertype,model_dtsc_usertype,dtsc.group_dtsc_bs,1,1,0,0
 access_dtsc_deliverydate,dtsc.deliverydate,model_dtsc_deliverydate,base.group_user,1,1,1,1
 access_dtsc_delreason,dtsc.delreason,model_dtsc_delreason,base.group_user,1,1,1,1
@@ -63,7 +65,7 @@ access_crm_lead,crm.lead,crm.model_crm_lead,dtsc.group_dtsc_yw,1,1,1,0
 access_dtsc_year,dtsc.year,model_dtsc_year,dtsc.group_dtsc_bs,1,1,1,1
 access_dtsc_month,dtsc.month,model_dtsc_month,dtsc.group_dtsc_bs,1,1,1,1
 
-access_dtsc_workqrcode,dtsc.workqrcode,model_dtsc_workqrcode,dtsc.group_dtsc_gly,1,1,1,1
+access_dtsc_workqrcode,dtsc.workqrcode,model_dtsc_workqrcode,dtsc.group_dtsc_bs,1,1,1,1
 access_dtsc_vatlogin,dtsc.vatlogin,model_dtsc_vatlogin,dtsc.group_dtsc_gly,1,1,1,1
 
 access_dtsc_order_preview,dtsc.order_preview,model_dtsc_order_preview,base.group_user,1,1,1,1
@@ -72,3 +74,14 @@ access_dtsc_order_preview,dtsc.order_preview,model_dtsc_order_preview,base.group
 "access_ir_actions_act_window_view_group_system","ir_actions_act_window_view_group_system","base.model_ir_actions_act_window_view","dtsc.group_dtsc_bs",1,1,1,1
 "access_ir_actions_act_window_close_group_system","ir_actions_act_window_close_group_system","base.model_ir_actions_act_window_close","dtsc.group_dtsc_bs",1,1,1,1
 
+access_dtsc_worktime,dtsc.worktime,model_dtsc_worktime,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_linebot,dtsc.linebot,model_dtsc_linebot,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_attendance,dtsc.attendance,model_dtsc_attendance,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_crmcomment,dtsc.crmcomment,model_dtsc_crmcomment,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_reportmounthinstall,dtsc.reportmounthinstall,model_dtsc_reportmounthinstall,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_crmusercomment,dtsc.crmusercomment,model_dtsc_crmusercomment,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_scanmode,dtsc.scanmode,model_dtsc_scanmode,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_pettycash,dtsc.pettycash,model_dtsc_pettycash,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_pettymanager,dtsc.pettymanager,model_dtsc_pettymanager,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_yklcomment,dtsc.yklcomment,model_dtsc_yklcomment,dtsc.group_dtsc_bs,1,1,1,1
+access_dtsc_yklcommentlocation,dtsc.yklcommentlocation,model_dtsc_yklcommentlocation,dtsc.group_dtsc_bs,1,1,1,1

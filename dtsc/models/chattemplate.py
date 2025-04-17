@@ -15,6 +15,66 @@ import json
 import xlsxwriter
 from io import BytesIO
 
+class YklCommentLocation(models.Model):
+    _name = 'dtsc.yklcommentlocation'
+    
+    name = fields.Char("位置")
+     
+class YklComment(models.Model):
+    _name = 'dtsc.yklcomment'
+    
+    name = fields.Char("名稱",compute="_compute_name",store=True)
+    location_id = fields.Many2one('stock.location',domain=[('usage', '=', 'internal')],string="位置")
+    loc_id = fields.Many2one('dtsc.yklcommentlocation',string="位置")
+    partner_id = fields.Many2one("res.partner",string="廠商",domain=[('supplier_rank', '>', 0)])
+    partner_name = fields.Char(string="廠商")
+    color = fields.Char("顔色/品名")
+    hou = fields.Char("厚度mm",default="0")
+    width = fields.Char("長度")
+    height = fields.Char("寬度")
+    quantity = fields.Integer("數量")
+    cai = fields.Integer(string="才數",compute="_compute_single_units",store=True)
+    comment_account = fields.Char("備註使用工單+片數")
+    comment = fields.Char("備註")
+    dateend = fields.Date("統計截止日")
+    
+    def copy_action(self):
+        self.ensure_one()  # 確保只處理一條
+        new_record = self.copy()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': '複製記錄',
+            'res_model': 'dtsc.yklcomment',
+            'view_mode': 'form',
+            'res_id': new_record.id,
+            'target': 'current',
+        }
+    
+    @api.depends("color","hou")
+    def _compute_name(self):
+        for record in self:
+            if record.color and record.hou:
+                if record.hou == "0":
+                    record.name = record.color
+                else:
+                    record.name = record.color+record.hou+"mm"
+            else:
+                record.name = ""
+                
+    @api.depends("width","height","quantity")
+    def _compute_single_units(self):
+        for record in self:
+                formula = self.env["dtsc.unit_conversion"].search([("name" , "=" ,"單位轉換計算(才數)")]).conversion_formula
+                param1 = float(record.width)
+                param2 = float(record.height)
+                if formula:
+                    result = eval(formula,{
+                        'param1' :param1,
+                        'param2' :param2,
+                    })
+                    record.cai = int(result * record.quantity + 0.5)
+                else:
+                    record.cai = 0.0
 
 class ChatTemplate(models.Model):
     _name = 'dtsc.chattemplate'
@@ -96,7 +156,7 @@ class CheckOutLine(models.Model):
     machineAndproduct = fields.Char("大小類別" ,store= True,compute="_compute_machine_and_product")    
     report_year = fields.Many2one("dtsc.year",string="年", related="checkout_product_id.report_year",store=True)
     report_month = fields.Many2one("dtsc.month",string="月", related="checkout_product_id.report_month",store=True)
-
+    estimated_date_only = fields.Date(string='發貨日期', related='checkout_product_id.estimated_date_only', store=True)
     
     @api.model
     def action_printexcel_machine(self):
@@ -288,7 +348,7 @@ class CheckOut(models.Model):
             # 'context': {'active_ids': self._context.get('active_ids')},
         }
     
-    
+
        
     
     @api.depends("record_price","install_total_price")

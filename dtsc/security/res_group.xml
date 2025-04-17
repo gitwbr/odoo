@@ -121,18 +121,20 @@
     </record>
     
     
-    <!-- <record id="model_dtsc_checkout_rule_yw" model="ir.model.access"> 
+    <record id="model_dtsc_checkout_rule_yw" model="ir.model.access"> 
         <field name="name">大圖訂單業務</field>
         <field name="model_id" ref="dtsc.model_dtsc_checkout"/>
         <field name="group_id" ref="dtsc.group_dtsc_yw"/>
         <field name="perm_create" eval="True"/>
-    </record> -->
+        <field name="perm_unlink" eval="True"/>
+    </record> 
     
     <record id="model_dtsc_checkoutline_rule_yw" model="ir.model.access"> 
         <field name="name">大圖訂單line業務</field>
         <field name="model_id" ref="dtsc.model_dtsc_checkoutline"/>
         <field name="group_id" ref="dtsc.group_dtsc_yw"/>
         <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
     </record>
 	<!-- 大圖訂單 -->
 	<!-- 委內 -->
@@ -661,6 +663,17 @@
             <field name="perm_create" eval="True"/>
             <field name="perm_unlink" eval="True"/>
         </record>
+		
+		<record id="model_dtsc_template_rule_yw" model="ir.model.access"> 
+            <field name="name">产品業務</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="group_id" ref="dtsc.group_dtsc_yw"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+		
         <record id="model_dtsc_template_rule_cg" model="ir.model.access"> 
             <field name="name">产品採購</field>
             <field name="model_id" ref="product.model_product_template"/>
@@ -680,6 +693,17 @@
             <field name="perm_create">0</field>
             <field name="perm_unlink">0</field>
         </record>
+		
+		<record id="product_template_rule_yw_base" model="ir.rule">
+            <field name="name">product_template baserule 業務</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="groups" eval="[(4, ref('dtsc.group_dtsc_yw'))]"/>
+            <field name="perm_read">1</field>
+            <field name="perm_write">0</field> 
+            <field name="perm_create">0</field>
+            <field name="perm_unlink">0</field>
+        </record>
+		
         <record id="product_template_rule_cg_base" model="ir.rule">
             <field name="name">product_template baserule 採購</field>
             <field name="model_id" ref="product.model_product_template"/>
@@ -704,6 +728,16 @@
             <field name="model_id" ref="product.model_product_template"/>
             <field name="groups" eval="[(4, ref('dtsc.group_dtsc_cg'))]"/>
             <field name="domain_force">[('purchase_ok','=',True)]</field>
+            <field name="perm_read">1</field>
+            <field name="perm_write">1</field>
+            <field name="perm_create">1</field>
+            <field name="perm_unlink">1</field>
+        </record>
+		 <record id="product_template_rule_yw" model="ir.rule">
+            <field name="name">销售产品规则業務</field>
+            <field name="model_id" ref="product.model_product_template"/>
+            <field name="groups" eval="[(4, ref('dtsc.group_dtsc_yw'))]"/>
+            <field name="domain_force">[('sale_ok','=',True)]</field>
             <field name="perm_read">1</field>
             <field name="perm_write">1</field>
             <field name="perm_create">1</field>

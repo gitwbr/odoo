@@ -13,6 +13,22 @@ from odoo.exceptions import UserError
 from pprint import pprint
 import json
 
+class Crmreport(models.AbstractModel):
+    _name = 'report.dtsc.report_crm_checkout_template'
+    _description = 'Description for Makeout Report'
+
+    @api.model
+    def _get_report_values(self, docids, data=None):
+        docs = self.env['dtsc.checkout'].browse(docids)
+        company = self.env['res.company'].search([],limit=1)
+        # print("===============")
+        # print(company)
+        return {
+            'doc_ids': docids,
+            'doc_model': 'dtsc.checkout',
+            'docs': docs,
+            'company':company,
+        }
 
 
 class CheckOutReport(models.Model):

@@ -81,8 +81,14 @@ class AccountReportWizard(models.TransientModel):
                         ('move_type', 'in', ['in_invoice']),  # 應收賬單和應付賬單
                     ])
             
-                    partner_ids = invoices.mapped('partner_id').filtered(lambda r: r.customer_rank > 0).ids
-                    partner_ids_supplier = invoices_supplier.mapped('partner_id').filtered(lambda r: r.supplier_rank > 0).ids
+                    partners = invoices.mapped('partner_id').filtered(lambda r: r.customer_rank > 0)
+                    sorted_partners = sorted(partners, key=lambda x: x.custom_id)
+                    partner_ids = [partner.id for partner in sorted_partners]
+                    
+                    # partner_ids_supplier = invoices_supplier.mapped('partner_id').filtered(lambda r: r.supplier_rank > 0).ids
+                    partners_supplier = invoices_supplier.mapped('partner_id').filtered(lambda r: r.supplier_rank > 0)
+                    sorted_suppliers = sorted(partners_supplier, key=lambda x: x.custom_id)
+                    partner_ids_supplier = [supplier.id for supplier in sorted_suppliers]
                     record.company_list_customer = [(6, 0, partner_ids)]
                     record.company_list_supplier = [(6, 0, partner_ids_supplier)]
     
@@ -107,8 +113,14 @@ class AccountReportWizard(models.TransientModel):
                         ('move_type', 'in', ['in_invoice']),  # 應收賬單和應付賬單
                     ])
             
-                    partner_ids = invoices.mapped('partner_id').filtered(lambda r: r.customer_rank > 0).ids
-                    partner_ids_supplier = invoices_supplier.mapped('partner_id').filtered(lambda r: r.supplier_rank > 0).ids
+                    partners = invoices.mapped('partner_id').filtered(lambda r: r.customer_rank > 0)
+                    sorted_partners = sorted(partners, key=lambda x: x.custom_id)
+                    partner_ids = [partner.id for partner in sorted_partners]
+                    
+                    # partner_ids_supplier = invoices_supplier.mapped('partner_id').filtered(lambda r: r.supplier_rank > 0).ids
+                    partners_supplier = invoices_supplier.mapped('partner_id').filtered(lambda r: r.supplier_rank > 0)
+                    sorted_suppliers = sorted(partners_supplier, key=lambda x: x.custom_id)
+                    partner_ids_supplier = [supplier.id for supplier in sorted_suppliers]
                     record.company_list_customer = [(6, 0, partner_ids)]
                     record.company_list_supplier = [(6, 0, partner_ids_supplier)]
     '''
@@ -192,7 +204,7 @@ class AccountReportWizard(models.TransientModel):
             'doc_model': 'account.move',
             'print_customer_label': print_customer_label,
         }
-        print(data)
+        # print(data)
         if print_customer_label == 'export_excel':
             return self.export_to_excel(data)  
         elif print_customer_label == 'pay_all_export_excel':
@@ -470,7 +482,7 @@ class AccountReport(models.AbstractModel):
                 
 
             else:
-                if select_company not in ["not_all"]:
+                if select_company not in ["not_all","not_all_zero"]:
                     company_id_list = self.env['res.partner'].search([('customer_rank', '>', 0)])
                     company_ids = company_id_list.mapped("id")
                 for company_id in company_ids:  # 外层循环处理每个 company_id
@@ -616,7 +628,7 @@ class AccountReport(models.AbstractModel):
                 company_detail["total_price"] = total_price
                 data["company_details"].append(company_detail)
             else:
-                if select_company not in ["not_all"]:
+                if select_company not in ["not_all","not_all_zero"]:
                     company_id_list = self.env['res.partner'].search([('supplier_rank', '>', 0)])
                     company_ids = company_id_list.mapped("id")
                     # print(company_ids)

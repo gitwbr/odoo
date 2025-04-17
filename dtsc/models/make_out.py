@@ -40,7 +40,7 @@ class MakeOut(models.Model):
     recheck_comment = fields.Char(related="checkout_id.recheck_comment",string="重製備註說明")
     recheck_groups = fields.Many2many(related="checkout_id.recheck_groups",string="重製相關部門") 
     
-    delivery_date = fields.Datetime(related="checkout_id.estimated_date" ,string='發貨日期' ,readonly=False,inverse='_inverse_delivery_date')
+    delivery_date = fields.Datetime(related="checkout_id.estimated_date" ,string='發貨日期' ,store=True ,readonly=False,inverse='_inverse_delivery_date')
     delivery_date_show = fields.Datetime(string='發貨日期', compute="_compute_delivery_date_show",store=True)
     checkout_order_date = fields.Datetime(string='大圖訂單時間')
     speed_type = fields.Selection([
@@ -56,7 +56,7 @@ class MakeOut(models.Model):
     total_size = fields.Integer(string='本單總才數', compute='_compute_totals' ,store=True)
     supplier_id = fields.Many2one('res.partner', string='委外商', domain=[('supplier_rank', '>', 0)])
     supplier_init_name = fields.Char(string="為外商",related="supplier_id.custom_init_name")
-    pinguanman = fields.Many2many('dtsc.userlist',string="品管" , domain=[('worktype_ids' , 'in' , [3])])
+    pinguanman = fields.Many2many('dtsc.userlist',string="品管" , domain=[('worktype_ids.name', '=', '品管')])
     create_id = fields.Many2one('res.users',string="")
     kaidan = fields.Many2one('dtsc.userlistbefore',string="開單人員") 
     date_labels = fields.Many2many(
@@ -73,6 +73,72 @@ class MakeOut(models.Model):
         compute="_compute_is_open_makeout_qrcode",
         store=False
     )
+    scan_type = fields.Selection([
+        ('gun', '掃碼槍'),
+        ('camera', '攝像頭')
+    ], string='簽名方式',default='gun')
+    scan_modes = fields.Many2many(
+        'dtsc.scanmode', 
+        string='簽名類型',
+        help="可多選類型"
+    )
+    scan_input = fields.Char("掃碼輸入員工")
+    
+    @api.onchange('scan_input')
+    def _onchange_scan_input(self):
+        if self.scan_input:
+            employee = self.env['dtsc.workqrcode'].sudo().search([('bar_image_code', '=ilike', self.scan_input)], limit=1)
+            if not employee:
+                self.scan_input = ""
+                raise UserError("未找到該員工，請確認QRcode正確！")
+            else:
+                self.scan_input = employee.name
+                
+    def button_confirm_action(self):
+        if not self.scan_input:
+            raise UserError("請錄入員工QRcode！")    
+        
+        select_flag = 0
+        for record in self.order_ids:
+            if record.is_select:
+                select_flag = 1
+                for mode in self.scan_modes:
+                    if mode.code == 'lb':
+                        field_name = "lengbiao_sign"
+                    elif mode.code == 'gb':
+                        field_name = "guoban_sign"
+                    elif mode.code == 'cq':
+                        field_name = "caiqie_sign"
+                    elif mode.code == 'hz':
+                        field_name = "houzhi_sign"
+                    elif mode.code == 'pg':
+                        field_name = "pinguan_sign"
+                    elif mode.code == 'dch':
+                        field_name = "daichuhuo_sign"
+                    elif mode.code == 'ych':
+                        field_name = "yichuhuo_sign"
+                    
+                    if field_name:
+                        current_value = record[field_name] or ""
+                        if current_value:
+                            new_value = f"{current_value},{self.scan_input}"
+                        else:
+                            new_value = self.scan_input
+                        record.write({field_name: new_value})
+                        if record.checkout_line_id:
+                            checkout_current_value = record.checkout_line_id[field_name] or ""
+                            if checkout_current_value:
+                                checkout_new_value = f"{checkout_current_value},{self.scan_input}"
+                            else:
+                                checkout_new_value = self.scan_input
+                            record.checkout_line_id.write({field_name: checkout_new_value})
+        if select_flag == 0:
+            raise UserError("請選擇要簽名的項次！") 
+            
+        for record in self.order_ids:
+            record.is_select = False
+        self.write({"scan_input": ""})
+    
     def set_boolean_field_true(self):
         for record in self.order_ids:
             record.is_select = True
@@ -298,7 +364,7 @@ class MakeOut(models.Model):
     def action_to_excel(self):
         active_ids = self._context.get('active_ids')
         records = self.env['dtsc.makeout'].browse(active_ids)
-        
+        sorted_records = sorted(records, key=lambda r: r.name)
         # 生成 Excel 文件
         output = BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
@@ -334,7 +400,7 @@ class MakeOut(models.Model):
         worksheet.write(0, 11, '工單號', bold_format)
         
         row = 1
-        for record in records:
+        for record in sorted_records:
             if '-D' in record.name:
                 continue
             supplier_init_name = record.supplier_init_name

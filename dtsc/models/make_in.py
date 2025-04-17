@@ -15,6 +15,16 @@ from dateutil.relativedelta import relativedelta
 from pytz import timezone
 from lxml import etree
 from datetime import datetime, timedelta, date
+
+class ScanMode(models.Model):
+    _name = 'dtsc.scanmode'
+    _description = 'Scan Mode'
+    _order = "sequence"
+
+    name = fields.Char("Name")
+    code = fields.Char("Code")
+    sequence = fields.Integer()
+
 class MakeIn(models.Model):
     _name = 'dtsc.makein'
     _order = "checkout_order_date desc"
@@ -62,7 +72,16 @@ class MakeIn(models.Model):
     create_id = fields.Many2one('res.users',string="")
     kaidan = fields.Many2one('dtsc.userlistbefore',string="開單人員") 
     no_mprlist = fields.Boolean(default=False)
-    
+    scan_type = fields.Selection([
+        ('gun', '掃碼槍'),
+        ('camera', '攝像頭')
+    ], string='簽名方式',default='gun')
+    scan_modes = fields.Many2many(
+        'dtsc.scanmode', 
+        string='簽名類型',
+        help="可多選類型"
+    )
+    scan_input = fields.Char("掃碼輸入員工")
     date_labels = fields.Many2many(
         'dtsc.datelabel', 
         'dtsc_makein_datelabel_rel', 
@@ -71,9 +90,9 @@ class MakeIn(models.Model):
         string='日期範圍'
     )
     #1輸出 2後置 3品管 4其他
-    houzhiman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel1', 'dtsc_makein_id','dtsc_userlist_id',string="後製" , domain=[('worktype_ids' , 'in' , [2])])
-    pinguanman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel2', 'dtsc_makein_id','dtsc_userlist_id',string="品管" , domain=[('worktype_ids' , 'in' , [3])])
-    outmanall = fields.Many2one('dtsc.userlist',string="所有輸出" , domain=[('worktype_ids' , 'in', [1])])
+    houzhiman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel1', 'dtsc_makein_id','dtsc_userlist_id',string="後製" , domain=[('worktype_ids.name', '=', '後製')])
+    pinguanman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel2', 'dtsc_makein_id','dtsc_userlist_id',string="品管" , domain=[('worktype_ids.name', '=', '品管')])
+    outmanall = fields.Many2one('dtsc.userlist',string="所有輸出" , domain=[('worktype_ids.name', '=', '輸出')])
     search_line_name = fields.Char(compute="_compute_search_line_name", store=True)
     signature = fields.Binary(string='簽名')
     # is_open_makein_qrcode = fields.Boolean(compute="_compute_is_open_makein_qrcode")
@@ -83,7 +102,60 @@ class MakeIn(models.Model):
         compute="_compute_is_open_makein_qrcode",
         store=False
     )
-
+    @api.onchange('scan_input')
+    def _onchange_scan_input(self):
+        if self.scan_input:
+            employee = self.env['dtsc.workqrcode'].sudo().search([('bar_image_code', '=ilike', self.scan_input)], limit=1)
+            if not employee:
+                self.scan_input = ""
+                raise UserError("未找到該員工，請確認QRcode正確！")
+            else:
+                self.scan_input = employee.name
+                
+    def button_confirm_action(self):
+        if not self.scan_input:
+            raise UserError("請錄入員工QRcode！")    
+        
+        select_flag = 0
+        for record in self.order_ids:
+            if record.is_select:
+                select_flag = 1
+                for mode in self.scan_modes:
+                    if mode.code == 'lb':
+                        field_name = "lengbiao_sign"
+                    elif mode.code == 'gb':
+                        field_name = "guoban_sign"
+                    elif mode.code == 'cq':
+                        field_name = "caiqie_sign"
+                    elif mode.code == 'hz':
+                        field_name = "houzhi_sign"
+                    elif mode.code == 'pg':
+                        field_name = "pinguan_sign"
+                    elif mode.code == 'dch':
+                        field_name = "daichuhuo_sign"
+                    elif mode.code == 'ych':
+                        field_name = "yichuhuo_sign"
+                    
+                    if field_name:
+                        current_value = record[field_name] or ""
+                        if current_value:
+                            new_value = f"{current_value},{self.scan_input}"
+                        else:
+                            new_value = self.scan_input
+                        record.write({field_name: new_value})
+                        if record.checkout_line_id:
+                            checkout_current_value = record.checkout_line_id[field_name] or ""
+                            if checkout_current_value:
+                                checkout_new_value = f"{checkout_current_value},{self.scan_input}"
+                            else:
+                                checkout_new_value = self.scan_input
+                            record.checkout_line_id.write({field_name: checkout_new_value})
+        if select_flag == 0:
+            raise UserError("請選擇要簽名的項次！") 
+            
+        for record in self.order_ids:
+            record.is_select = False
+        self.write({"scan_input": ""})
     # @api.depends_context
     # def _compute_is_open_makein_qrcode(self):
         # 从配置参数中获取值
@@ -364,9 +436,21 @@ class MakeIn(models.Model):
                  
     
     def del_install_list(self):
-        print("del_install_list")
-        self.write({"install_state":"cancel"})        
-        self.write({"name":self.name+"-D"})
+        del_name = self.name.replace("B","W")
+        mpr_obj = self.env["dtsc.mpr"].search([('name','=',del_name)],limit=1)
+        if not mpr_obj:
+            self.write({"install_state":"cancel"})        
+            self.write({"name":self.name+"-D"})
+        else:
+            if mpr_obj.state == "succ":
+                raise UserError("此單無法作廢，已經扣料")                
+            else:
+                for line in self.order_ids:
+                    if line.is_stock_off == True:
+                        raise UserError("此單無法作廢，已經扣料")
+                mpr_obj.unlink()
+                self.write({"install_state":"cancel"})        
+                self.write({"name":self.name+"-D"})
     
     #生成扣料单
     def kld_btn(self):
@@ -471,7 +555,7 @@ class MakeLine(models.Model):
     output_material = fields.Char(string='輸出材質', compute='_compute_output_material')
     production_size = fields.Char(string='製作尺寸', compute='_compute_production_size')
     lengbiao = fields.Char(string='裱', compute='_compute_lengbiao')
-    outman = fields.Many2one('dtsc.userlist',string="輸出" , domain=[('worktype_ids' , 'in' , [1])])
+    outman = fields.Many2one('dtsc.userlist',string="輸出" , domain=[('worktype_ids.name', '=', '輸出')])
     is_modified = fields.Boolean(string="is modified",default = False)
     is_stock_off = fields.Boolean(default = False,compute="_compute_is_stock_off") 
 

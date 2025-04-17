@@ -15,7 +15,27 @@ import logging
 _logger = logging.getLogger(__name__)
 
 class Checkout(http.Controller):
-
+    @http.route('/stockcolor', type='http', auth='public', csrf=False)
+    def stock_color(self, **kwargs):
+        # _logger.info(f"==========={kwargs.get('name')}======")
+        name = kwargs.get('name')
+        product_template_obj = request.env['product.template'].search([("name" ,"=",name)],limit=1)
+        is_color = True
+        if product_template_obj:
+            product_product_obj = request.env['product.product'].search([("product_tmpl_id" ,"=", product_template_obj.id)],limit=1)
+            internal_locations = request.env['stock.location'].search([('usage', '=', 'internal')])
+            internal_location_ids = internal_locations.ids
+            stock_quant_objs = request.env['stock.quant'].search([("product_id" ,"=",product_product_obj.id),('location_id', 'in', internal_locations.ids)])
+            # _logger.info(f"=================")
+            # _logger.info(f"========{product_product_obj.name}=========")
+            for record in stock_quant_objs:
+                # _logger.info(f"========{record.inventory_quantity}=========")
+                # _logger.info(f"========{record.lot_id.name}=========")
+                if not record.inventory_quantity:
+                    is_color = False
+                    break
+        return json.dumps({"is_color": is_color})
+        
     @http.route(['/checkout'], type='http', auth="public", website=True)
     def checkout(self, **kwargs):
         return http.request.render('dtsc.checkout_page', {})
@@ -356,7 +376,7 @@ class Checkout(http.Controller):
                 worksheet.write(row, 2, data['total_quantity'])
                 worksheet.write(row, 3, data['total_size'])
                 row += 1
-            excelname = '委外生產統計表.xlsx'
+            excelname = '委外生產統計表(簡易).xlsx'
 
         workbook.close()
 

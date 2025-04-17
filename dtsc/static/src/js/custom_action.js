@@ -250,6 +250,7 @@ patch(ActionMenus.prototype, 'dtsc.ActionMenus', {
                         action.description !== '轉出貨單' && 
                         action.description !== '轉應收單' && 
                         action.description !== '追加單據' &&
+                        action.description !== '報價單轉Excel' &&
                         action.description !== '業務出貨統計表轉Excel' 
                     ); 					
                     console.log('Filtered formattedActions based on view:', formattedActions);
@@ -259,6 +260,7 @@ patch(ActionMenus.prototype, 'dtsc.ActionMenus', {
                         action.description !== '轉出貨單' && 
                         action.description !== '轉應收單' && 
                         action.description !== '追加單據' &&
+                        action.description !== '報價單轉Excel' &&
                         action.description !== '出貨統計表轉Excel' 
                     );
                     console.log('Filtered formattedActions based on view:', formattedActions);
@@ -285,6 +287,17 @@ patch(ActionMenus.prototype, 'dtsc.ActionMenus', {
                     formattedActions = formattedActions.filter(action => 
                         action.description !== '委外生產統計表轉Excel'
                     );
+                    console.log('Filtered formattedActions based on view:', formattedActions);
+                }			
+                else if (externalId === 'dtsc.view_checkout_tree_crm') {
+                    formattedActions = formattedActions.filter(action => 
+                        action.description !== '轉出貨單' && 
+                        action.description !== '轉應收單' && 
+                        action.description !== '追加單據' &&
+                        action.description !== '出貨統計表轉Excel' &&
+                        action.description !== '業務出貨統計表轉Excel' &&
+                        action.description !== '合併' 
+                    ); 					
                     console.log('Filtered formattedActions based on view:', formattedActions);
                 }
             }

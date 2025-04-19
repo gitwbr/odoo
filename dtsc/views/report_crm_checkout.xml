@@ -77,7 +77,7 @@
 								<div class="col text-center" style="flex: 2;">小計</div>
 							</div>	
 							<t t-foreach="doc.product_ids" t-as="order">
-								<div class="row" style="border-bottom: 1px solid lightgray; margin-bottom: 10px;">
+								<div class="row" style="border-bottom: 1px solid lightgray; margin-bottom: 10px;page-break-inside: avoid !important;">
 									<div class="col text-center" style="flex: 1;">
 										<span t-field="order.sequence" />	
 									</div>
@@ -181,7 +181,7 @@
 									</div>
 							</div>
 						
-							<div class="row" style="margin-bottom: 10px;">
+							<div class="row" style="margin-bottom: 10px;page-break-inside: avoid !important;">
 								<div class="col text-center" style="flex: 1; font-weight: bold;">
 									備註
 								</div>
@@ -202,63 +202,25 @@
 								</t>
 							</t>
 						</div>
-						<table class="table table-condensed">
-                            <tbody>
-								<!-- <t t-set="count" t-value="1"/> -->
-								<!-- <t t-foreach="data['comments']" t-as="o"> -->
-									<!-- <tr> -->
-										<!-- <t t-if="count == 1"> -->
-										
-											<!-- <td t-att-rowspan="len(data['comments'])" width="15px" >備註</td> -->
-											<!-- <t t-set="count" t-value="2"/> -->
-										<!-- </t> -->
-										
-										<!-- <td colspan="3"><t t-esc="o.sequence" />.<t t-esc="o.comment" /></td> -->
-									<!-- </tr> -->
-								<!-- </t> -->
-								
-                                <!-- <tr> -->
-                                    <!-- <td rowspan="4" width="10%" >備註</td> -->
-                                    <!-- <td colspan="3">1.以上報價含稅。</td> -->
-                                <!-- </tr> -->
-                                <!-- <tr> -->
-                                    <!-- <td colspan="3">2.客戶自備印刷檔案</td> -->
-                                <!-- </tr> -->
-                                <!-- <tr> -->
-                                    <!-- <td colspan="3">3.確認訂單後製作時間21~30天,不含假日</td> -->
-                                <!-- </tr> -->
-                                <!-- <tr> -->
-                                    <!-- <td colspan="3">4.下單後請先支付款項</td> -->
-                                <!-- </tr> -->
-                                <tr>
-                                    <td colspan="4" class="col text-center" style="background-color:gray">匯款銀行:合作金庫 南土城分行006 戶名:科影數位影像(股)公司. 帳號:3605717004868</td>
-                                </tr>
-								<tr>
-									<td width="10%">業務</td>
-									<td width="40%"><span t-field="doc.user_id.name" /></td>
-									<td width="10%">聯絡電話</td>
-									<td width="40%">2221-8868</td>
-								</tr>
-								<tr>
-									<td width="20%">主管確認簽章</td>
-									<td width="30%"><img src="dtsc/static/description/sig.png" alt="Signature" style="width:100px; height:auto;"/></td>
-									<td width="50%" colspan="2">客戶確認簽章</td>
-								</tr>
-                            </tbody>
-                        </table>	
+						<div class="table-section" style="page-break-inside: avoid !important;">
+							<div class="row">
+								<div class="col-12 text-center" style="background-color:gray">匯款銀行:合作金庫 南土城分行006 戶名:科影數位影像(股)公司. 帳號:3605717004868</div>
+							</div>
+							<div class="row">
+								<div class="col-3">業務</div>
+								<div class="col-3"><span t-field="doc.user_id.name" /></div>
+								<div class="col-3">聯絡電話</div>
+								<div class="col-3">2221-8868</div>
+							</div>
+							<div class="row">
+								<div class="col-3">主管確認簽章</div>
+								<div class="col-3"><img src="dtsc/static/description/sig.png" alt="Signature" style="width:100px; height:auto;"/></div>
+								<div class="col-6">客戶確認簽章</div>
+							</div>
+						</div>
 					</t>
 				</t>
 			</div>
-            <!-- <t t-foreach="docs" t-as="doc"> -->
-				<!-- <t t-call="dtsc.external_layout_coin"> -->
-					<!-- <div class="company-header"> -->
-                    <!-- <img t-if="company.logo" t-att-src="'data:image/png;base64,%s' % company.logo.decode('utf-8')" class="company-logo" /> -->
-                    <!-- <div class="company-name"> -->
-                        <!-- <span t-field="company.name" /> -->
-                    <!-- </div> -->
-                <!-- </div> -->
-				<!-- </t> -->
-			<!-- </t> -->
 		</t>
 	</template>
 

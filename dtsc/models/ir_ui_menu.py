@@ -55,4 +55,12 @@ class IrUiMenu(models.Model):
             menu_ids_to_filter = [menu.id for menu in menus_to_filter if menu]
             if menu_ids_to_filter:
                 args += [('id', 'not in', menu_ids_to_filter)]
+
+        if self.env.user.has_group('dtsc.group_dtsc_disable_bb'):
+            menus_to_filter = [
+                self.env.ref('dtsc.menu_chart_dashboard_root1', raise_if_not_found=False),
+            ]
+            menu_ids_to_filter = [menu.id for menu in menus_to_filter if menu]
+            if menu_ids_to_filter:
+                args += [('id', 'not in', menu_ids_to_filter)]
         return super(IrUiMenu, self).search(args, offset, limit, order, count)

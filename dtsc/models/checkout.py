@@ -1741,9 +1741,11 @@ class Checkout(models.Model):
         # install_name = self.name.replace("A","T").replace("E","T")
         product_values_list = []
         sequence_number = 1
+        sjsf = 0
         for record in self.product_ids:
             if record.is_install: 
-                # print(record.product_id.name)               
+                # print(record.product_id.name)
+                sisf = sisf + record.install_price
                 product_value = {
                     'name' : record.product_id.id,
                     'size' : record.product_width + "x" + record.product_height,
@@ -1762,6 +1764,7 @@ class Checkout(models.Model):
         if sequence_number > 1:
             self.env['dtsc.installproduct'].create({
                 'name' : install_name,
+                'sjsf' : sjsf,
                 'install_product_ids' : product_values_list,   
                 'checkout_id' : self.id,         
             })
@@ -2281,7 +2284,7 @@ class CheckOutLine(models.Model):
         string='後加工方式'
     )
     same_material = fields.Boolean(string="同材質")
-    
+    install_price = fields.Float("施工費用")
     def update_price(self):
         # 如果勾选了“同材質”，则更新同一 checkout 中所有相同 product_id 的行
         if self.same_material:
@@ -2418,9 +2421,9 @@ class CheckOutLine(models.Model):
         # print(self.env.context.get('from_recheck'))
         # print(self.env.context)
         # print(vals)
-        if self.env.context.get('from_recheck'):
-            return super().write(vals)
-            
+        # if self.env.context.get('from_recheck'):
+            # return super().write(vals)
+        # print(vals)    
         group_dtsc_mg = self.env.ref('dtsc.group_dtsc_mg', raise_if_not_found=False)
         group_dtsc_gly = self.env.ref('dtsc.group_dtsc_gly', raise_if_not_found=False)
         user = self.env.user
@@ -2429,7 +2432,7 @@ class CheckOutLine(models.Model):
                 
         if user not in group_dtsc_gly.users and user in group_dtsc_mg.users:
             if self.checkout_product_id.is_delivery:
-                allowed_fields = {'price', 'product_total_price', 'units_price', 'total_make_price', 'peijian_price'}
+                allowed_fields = {'price', 'product_total_price', 'units_price', 'total_make_price', 'peijian_price',"is_selected","sale_order_line_id","project_product_name"}
                 disallowed = set(vals.keys()) - allowed_fields
                 if disallowed:
                     raise UserError("此訂單已出貨，僅允許修改價格相關欄位。")

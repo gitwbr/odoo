@@ -93,6 +93,12 @@
 		<field name="name">禁止訪問採購</field> 
 		<field name="category_id" ref="module_category_large_image" />
     </record> 
+
+    <!-- 臨時權限 -->
+	<record id="group_dtsc_disable_bb" model="res.groups">
+		<field name="name">禁止訪問報表</field> 
+		<field name="category_id" ref="module_category_large_image" />
+    </record> 
     
     <!-- 定义组 -->
     <!-- 大圖訂單 -->

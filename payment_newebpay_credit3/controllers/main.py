@@ -101,14 +101,26 @@ class NewebPayController(http.Controller):
                 
                 # 处理解密后的数据
                 if decrypted_data:
-                    _logger.info("newebpay webhook decrypted_data: %s", pprint.pformat(decrypted_data))
+                    _logger.info("***********newebpay webhook decrypted_data: %s", pprint.pformat(decrypted_data))
                     status = decrypted_data.get("Status")
                     #merchant_order_no = decrypted_data.get("Result", {}).get("MerchantOrderNo").split('_')[0]
                     merchant_order_no = decrypted_data.get("Result", {}).get("MerchantOrderNo").replace('_', '-')
+                    ref_parts = merchant_order_no.split('-')
+                    check_out_name = ref_parts[0]
+                    print(f"check_out_name****************{check_out_name}**********************")
+                    sale_order_name = self.env["dtsc.checkout"].search([('name',"=",check_out_name)],limit=1).sale_order_id.name
+                    print(f"sale_order_name****************{sale_order_name}**********************")
+                    ######
+                    # merchant_order_no = processing_values['reference']
+                    if len(ref_parts) > 1 and ref_parts[1]:
+                        aaa = f"{sale_order_name}-{ref_parts[1]}"
+                    else:
+                        aaa = sale_order_name
+                    print(f"aaa****************{aaa}**********************")
                     
-                    tx_order = request.env['payment.transaction'].sudo().search([('reference', '=', merchant_order_no)])
+                    tx_order = request.env['payment.transaction'].sudo().search([('reference', '=', aaa)])
                     if not tx_order:
-                        _logger.error("No transaction found matching reference %s.", merchant_order_no)
+                        _logger.error("No transaction found matching reference %s.", aaa)
                         return '1|OK'
 
                     if status != "SUCCESS":
@@ -119,8 +131,8 @@ class NewebPayController(http.Controller):
                     else:                          
                         tx_order.action_newebpay_set_done() 
                         domain = [
-                            ('reference', 'like', merchant_order_no.split('-')[0] + '%'),
-                            ('reference', '!=', merchant_order_no)
+                            ('reference', 'like', aaa.split('-')[0] + '%'),
+                            ('reference', '!=', aaa)
                         ]
                         _logger.info("newebpay webhook domain: %s", pprint.pformat(domain))
                         transactions = request.env['payment.transaction'].sudo().search(domain)
@@ -131,7 +143,7 @@ class NewebPayController(http.Controller):
                                 'state': 'draft',
                                 'is_post_processed': True
                             })
-                        _logger.info("Successfully processed the newebpay webhook for reference %s", merchant_order_no)
+                        _logger.info("Successfully processed the newebpay webhook for reference %s", aaa)
                 else:
                     _logger.error("Failed to newebpay webhook decrypted_data.")
         

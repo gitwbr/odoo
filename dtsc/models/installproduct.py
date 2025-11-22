@@ -137,6 +137,9 @@ class Imagelist(models.Model):
     image_yt = fields.Binary(string="原圖")
     image_sgq = fields.Binary(string="施工前")
     image_wgt = fields.Binary(string="完工圖")
+    image_yt_new = fields.Image(string="原圖", max_width=600, max_height=600)
+    image_sgq_new = fields.Image(string="施工前", max_width=600, max_height=600)
+    image_wgt_new = fields.Image(string="完工圖", max_width=600, max_height=600)
     # project_name = fields.Char(related="checkout_id.project_name",string="案件摘要") 
     project_product_name = fields.Text(related="install_line_id.project_product_name",string="檔名") 
     def unlink_record(self):
@@ -168,7 +171,6 @@ class Installproduct(models.Model):
     partner_id = fields.Many2one(related="checkout_id.customer_id",string="客戶") 
     custom_init_name = fields.Char(related="checkout_id.customer_id.custom_init_name",string="客戶") 
     project_name = fields.Char(related="checkout_id.project_name",string="案件摘要") 
-    # checkout_order_state = fields.Char(related="checkout_id.checkout_order_state",string="狀態") 
     checkout_order_state = fields.Selection([
         ("draft","草稿"),
         ("quoting","做檔中"),
@@ -213,6 +215,16 @@ class Installproduct(models.Model):
     is_invoice = fields.Boolean(default=False)
     search_line_name = fields.Char(compute="_compute_search_line_name", store=True)
     
+    
+    # def write(self, vals):
+        # if self.checkout_order_state in ["receivable_assigned"]:
+            # allowed_fields = {"install_state"}
+            # disallowed = set(vals.keys()) - allowed_fields
+            # if disallowed:
+                # raise UserError("該大圖訂單已轉應收，不能修改！")
+
+        # return super(Installproduct, self).write(vals)
+            
     @api.depends("install_product_ids.name","install_product_ids.size","install_product_ids.caizhi","install_product_ids.install_note","install_product_ids.gongdan","name","custom_init_name","project_name")
     def _compute_search_line_name(self):
         for record in self:
@@ -504,7 +516,7 @@ class Installproduct(models.Model):
             
             # 原圖
             if record.image_yt:
-                image_yt_base64 = record.image_yt.decode('utf-8')
+                image_yt_base64 = record.image_yt_new.decode('utf-8')
                 image_yt_src = f"data:image/png;base64,{image_yt_base64}"
                 pdfstring += f'<td><img src="{image_yt_src}" alt="原圖" width="200"/></td>'
             else:
@@ -512,7 +524,7 @@ class Installproduct(models.Model):
                 
             # 施工前
             if record.image_sgq:
-                image_sgq_base64 = record.image_sgq.decode('utf-8')
+                image_sgq_base64 = record.image_sgq_new.decode('utf-8')
                 image_sgq_src = f"data:image/png;base64,{image_sgq_base64}"
                 pdfstring += f'<td><img src="{image_sgq_src}" alt="施工前" width="200"/></td>'
             else:
@@ -520,7 +532,7 @@ class Installproduct(models.Model):
                 
             # 完工圖
             if record.image_wgt:
-                image_wgt_base64 = record.image_wgt.decode('utf-8')
+                image_wgt_base64 = record.image_wgt_new.decode('utf-8')
                 image_wgt_src = f"data:image/png;base64,{image_wgt_base64}"
                 pdfstring += f'<td><img src="{image_wgt_src}" alt="完工圖" width="200"/></td>'
             else:
@@ -538,7 +550,7 @@ class Installproduct(models.Model):
                     pdfstring += f'<td colspan="2">施工説明:無</td>'
                 # 原圖
                 if line.image_yt:
-                    image_yt_base64 = line.image_yt.decode('utf-8')
+                    image_yt_base64 = line.image_yt_new.decode('utf-8')
                     image_yt_src = f"data:image/png;base64,{image_yt_base64}"
                     pdfstring += f'<td><img src="{image_yt_src}" alt="原圖" width="200"/></td>'
                 else:
@@ -546,7 +558,7 @@ class Installproduct(models.Model):
                 
                 # 施工前
                 if line.image_sgq:
-                    image_sgq_base64 = line.image_sgq.decode('utf-8')
+                    image_sgq_base64 = line.image_sgq_new.decode('utf-8')
                     image_sgq_src = f"data:image/png;base64,{image_sgq_base64}"
                     pdfstring += f'<td><img src="{image_sgq_src}" alt="施工前" width="200"/></td>'
                 else:
@@ -554,7 +566,7 @@ class Installproduct(models.Model):
                     
                 # 完工圖
                 if line.image_wgt:
-                    image_wgt_base64 = line.image_wgt.decode('utf-8')
+                    image_wgt_base64 = line.image_wgt_new.decode('utf-8')
                     image_wgt_src = f"data:image/png;base64,{image_wgt_base64}"
                     pdfstring += f'<td><img src="{image_wgt_src}" alt="完工圖" width="200"/></td>'
                 else:
@@ -720,9 +732,28 @@ class InstallproductLine(models.Model):
     image_yt = fields.Binary(string="原圖",related="checkoutline_id.small_image",inverse='_inverse_image_yt',readonly=False)
     image_sgq = fields.Binary(string="施工前")
     image_wgt = fields.Binary(string="完工圖")
+    image_yt_new = fields.Image(string="原圖",related="checkoutline_id.small_image_new",inverse='_inverse_image_yt_new',readonly=False, max_width=600, max_height=600)
+    image_sgq_new = fields.Image(string="施工前", max_width=600, max_height=600)
+    image_wgt_new = fields.Image(string="完工圖", max_width=600, max_height=600)
     install_note = fields.Text(string="施工説明")
     #make_order_id = fields.Many2one("dtsc.makein")
     images = fields.One2many('dtsc.imagelist', 'install_line_id', string="Images")
+    
+    
+    
+    # def write(self, vals):
+        # for record in self:
+            # if record.install_product_id.checkout_order_state in ["receivable_assigned"]:
+                # raise UserError("該大圖訂單已轉應收，不能修改！")
+
+        # return super(InstallproductLine, self).write(vals)
+
+    
+    def _inverse_image_yt_new(self):
+        """当修改 image_yt 时，更新关联的 checkoutline_id.small_image"""
+        for record in self:
+            if record.checkoutline_id:
+                record.checkoutline_id.small_image_new = record.image_yt_new
     
     def _inverse_image_yt(self):
         """当修改 image_yt 时，更新关联的 checkoutline_id.small_image"""

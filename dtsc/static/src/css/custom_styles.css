@@ -16,7 +16,7 @@
 
 /* 訂單內容栏位 */
 .custom-order-table th:nth-child(3), .custom-order-table td:nth-child(3) {
-    width: 20%; /* 为訂單內容分配 20% 的宽度 */
+    width: 5%; /* 为訂單內容分配 20% 的宽度 */
 }
 
 /* 金額栏位 */
@@ -31,7 +31,7 @@
 
 /* 進度表栏位 */
 .custom-order-table th:nth-child(5), .custom-order-table td:nth-child(5) {
-    width: 22%; /* 为進度表分配 25% 的宽度，以适应进度条显示 */
+    width: 37%; /* 为進度表分配 25% 的宽度，以适应进度条显示 */
 }
 
 /* 取消訂單原因栏位 */

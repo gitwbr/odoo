@@ -30,7 +30,7 @@
     ],
     # always loaded
     'data': [
-        # 'i18n/zh_TW.po',
+        #'i18n/zh_TW.po',
         'views/stock_lot.xml',
         'security/res_group.xml',
         'security/ir.model.access.csv',
@@ -40,6 +40,7 @@
         'views/templates.xml',
         'views/checkout.xml',
         'views/order.xml',
+        'views/public_web_order.xml',
         'views/customclass.xml',
         'views/statement.xml',
         'views/res_partner_templates.xml',
@@ -85,7 +86,13 @@
         'views/order_preview.xml',   
         'views/report_crm_checkout.xml',   
         'views/linebot.xml',   
-        'views/pettycash.xml',   
+        'views/pettycash.xml',  
+        'views/calendar.xml',  
+        'views/performance.xml',  
+        'views/interoperate.xml', 
+        'views/make_om.xml',
+        'views/report_makeom.xml',
+        'views/report_performance.xml',
         'views/views.xml',
     ],
 	'assets': {
@@ -103,6 +110,7 @@
             'dtsc/static/src/js/geolocation_widget.js',
             'dtsc/static/src/xml/geolocation_widget.xml',
             'dtsc/static/src/xml/tree_button.xml',
+            'dtsc/static/src/xml/payment_override.xml',
             'dtsc/static/src/js/tree_button.js',
             'dtsc/static/src/js/stock_color.js',  
             'dtsc/static/src/js/inventory_report_list_controller.js',  
@@ -111,6 +119,7 @@
         'web.assets_frontend': [            
             'dtsc/static/src/js/checkout.js',
             'dtsc/static/src/js/order.js',
+            'dtsc/static/src/js/public_web_order.js',
             'dtsc/static/src/js/checkout_view.js', 
             'dtsc/static/src/css/custom_styles.css',
             'dtsc/static/src/js/website_custom.js',

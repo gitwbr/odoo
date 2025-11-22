@@ -41,6 +41,7 @@ class MakeOut(models.Model):
     recheck_groups = fields.Many2many(related="checkout_id.recheck_groups",string="重製相關部門") 
     
     delivery_date = fields.Datetime(related="checkout_id.estimated_date" ,string='發貨日期' ,store=True ,readonly=False,inverse='_inverse_delivery_date')
+    out_side_delivery_date = fields.Datetime(string='站外發貨日期')
     delivery_date_show = fields.Datetime(string='發貨日期', compute="_compute_delivery_date_show",store=True)
     checkout_order_date = fields.Datetime(string='大圖訂單時間')
     speed_type = fields.Selection([
@@ -58,7 +59,7 @@ class MakeOut(models.Model):
     supplier_init_name = fields.Char(string="為外商",related="supplier_id.custom_init_name")
     pinguanman = fields.Many2many('dtsc.userlist',string="品管" , domain=[('worktype_ids.name', '=', '品管')])
     create_id = fields.Many2one('res.users',string="")
-    kaidan = fields.Many2one('dtsc.userlistbefore',string="開單人員") 
+    kaidan = fields.Many2one('dtsc.userlistbefore',string="開單人員",domain=[("is_disabled","=",False)]) 
     date_labels = fields.Many2many(
         'dtsc.datelabel', 
         'dtsc_makeout_datelabel_rel', 
@@ -83,7 +84,14 @@ class MakeOut(models.Model):
         help="可多選類型"
     )
     scan_input = fields.Char("掃碼輸入員工")
+    is_in_by_gly = fields.Boolean(compute='_compute_is_in_by_gly')
     
+    @api.depends()
+    def _compute_is_in_by_gly(self):
+        group_dtsc_gly = self.env.ref('dtsc.group_dtsc_gly', raise_if_not_found=False)
+        user = self.env.user
+        self.is_in_by_gly = group_dtsc_gly and user in group_dtsc_gly.users
+        
     @api.onchange('scan_input')
     def _onchange_scan_input(self):
         if self.scan_input:
@@ -168,6 +176,8 @@ class MakeOut(models.Model):
         for record in self:
             if record.checkout_id.customer_bianhao:
                 record.customer_name = record.checkout_id.customer_id.name + "("+record.checkout_id.customer_bianhao+")"
+            else:
+                record.customer_name = record.checkout_id.customer_id.name
     
     def everyday_set(self):
         # 設置時區
@@ -297,7 +307,7 @@ class MakeOut(models.Model):
             # print(record_labels)
             # 寫入標籤時過濾None
             record.write({'date_labels': [(6, 0, [label.id for label in record_labels if label])]})
-    @api.depends("order_ids.file_name","order_ids.output_material","order_ids.production_size","order_ids.processing_method","order_ids.lengbiao","project_name","factory_comment","factory","install_state","name","user_id","source_name","customer_name","contact_person","delivery_method","phone","fax")
+    @api.depends("order_ids.file_name","order_ids.output_material","order_ids.production_size","order_ids.processing_method","order_ids.lengbiao","project_name","factory_comment","factory","install_state","name","user_id","source_name","contact_person","delivery_method","phone","fax")
     def _compute_search_line_name(self):
         for record in self:
             file_name = [line.file_name for line in record.order_ids if line.file_name]
@@ -316,9 +326,9 @@ class MakeOut(models.Model):
             # combined_processing_method_after = ', '.join(processing_method_after)
             combined_lengbiao = ', '.join(lengbiao)
             # combined_barcode = ', '.join(barcode)
-            print(record.customer_name)
+            # print(record.customer_name)
             result = ', '.join([
-                record.project_name or '',record.customer_name or '',record.contact_person or '',record.fax or '',record.phone or '',record.factory_comment or '',record.factory or "",record.install_state or "",record.name or "",record.user_id.name or "",record.source_name or "",
+                record.project_name or '',record.contact_person or '',record.fax or '',record.phone or '',record.factory_comment or '',record.factory or "",record.install_state or "",record.name or "",record.user_id.name or "",record.source_name or "",
                 combined_file_name or '',combined_output_material or '',combined_production_size or '',combined_processing_method or '',combined_lengbiao or '',
             ])
             
@@ -489,6 +499,20 @@ class MakeLine(models.Model):
         readonly=True,
         copy=False
     )
+    
+    def clean_houzhi(self):
+        self.houzhi_sign = ""
+        self.checkout_line_id.houzhi_sign = ""
+    def clean_pinguan(self):
+        self.pinguan_sign = ""
+        self.checkout_line_id.pinguan_sign = ""
+    def clean_daichuhuo(self):
+        self.daichuhuo_sign = ""
+        self.checkout_line_id.daichuhuo_sign = ""
+    def clean_yichuhuo(self):
+        self.yichuhuo_sign = ""
+        self.checkout_line_id.yichuhuo_sign = ""
+    
     
     @api.depends('make_order_id.name', 'sequence')
     def _compute_barcode(self):

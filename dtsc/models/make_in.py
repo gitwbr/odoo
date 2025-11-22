@@ -24,7 +24,20 @@ class ScanMode(models.Model):
     name = fields.Char("Name")
     code = fields.Char("Code")
     sequence = fields.Integer()
+    
+class InstallFactoryLine(models.Model):
+    _name = 'dtsc.makeinfactoryline'
+    _description = '工單廠區確認'
 
+    makein_id = fields.Many2one('dtsc.makein', required=True, ondelete='cascade')
+    factory_id = fields.Many2one('dtsc.factory', string='廠區', required=True)
+    confirmed = fields.Boolean(string='已確認', default=False)
+
+    def action_confirm(self):
+        for rec in self:
+            rec.confirmed = True
+        return True
+        
 class MakeIn(models.Model):
     _name = 'dtsc.makein'
     _order = "checkout_order_date desc"
@@ -70,7 +83,7 @@ class MakeIn(models.Model):
     total_quantity = fields.Integer(string='本單總數量', compute='_compute_totals')
     total_size = fields.Integer(string='本單總才數', compute='_compute_totals')
     create_id = fields.Many2one('res.users',string="")
-    kaidan = fields.Many2one('dtsc.userlistbefore',string="開單人員") 
+    kaidan = fields.Many2one('dtsc.userlistbefore',string="開單人員",domain=[("is_disabled","=",False)]) 
     no_mprlist = fields.Boolean(default=False)
     scan_type = fields.Selection([
         ('gun', '掃碼槍'),
@@ -90,9 +103,9 @@ class MakeIn(models.Model):
         string='日期範圍'
     )
     #1輸出 2後置 3品管 4其他
-    houzhiman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel1', 'dtsc_makein_id','dtsc_userlist_id',string="後製" , domain=[('worktype_ids.name', '=', '後製')])
-    pinguanman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel2', 'dtsc_makein_id','dtsc_userlist_id',string="品管" , domain=[('worktype_ids.name', '=', '品管')])
-    outmanall = fields.Many2one('dtsc.userlist',string="所有輸出" , domain=[('worktype_ids.name', '=', '輸出')])
+    houzhiman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel1', 'dtsc_makein_id','dtsc_userlist_id',string="後製" , domain=[('worktype_ids.name', '=', '後製'),("is_disabled","=",False)])
+    pinguanman = fields.Many2many('dtsc.userlist','dtsc_makein_dtsc_userlist_rel2', 'dtsc_makein_id','dtsc_userlist_id',string="品管" , domain=[('worktype_ids.name', '=', '品管'),("is_disabled","=",False)])
+    outmanall = fields.Many2one('dtsc.userlist',string="所有輸出" , domain=[('worktype_ids.name', '=', '輸出'),("is_disabled","=",False)])
     search_line_name = fields.Char(compute="_compute_search_line_name", store=True)
     signature = fields.Binary(string='簽名')
     # is_open_makein_qrcode = fields.Boolean(compute="_compute_is_open_makein_qrcode")
@@ -102,6 +115,39 @@ class MakeIn(models.Model):
         compute="_compute_is_open_makein_qrcode",
         store=False
     )
+    factory_succ = fields.Many2many("dtsc.factory",string="廠區選擇")
+    factory_line_ids = fields.One2many('dtsc.makeinfactoryline', 'makein_id',string='廠區確認')    
+    all_factory_confirmed = fields.Boolean(string='廠區是否全部已確認',compute='_compute_all_factory_confirmed',store=True,)
+
+    @api.onchange('factory_succ')
+    def _onchange_factory_succ(self):
+        for rec in self:
+            # 先清空既有 line
+            new_lines = []
+            for factory in rec.factory_succ:
+                new_lines.append((0, 0, {
+                    'factory_id': factory.id,
+                    # 預設全部未確認
+                    'confirmed': False,
+                }))
+            rec.factory_line_ids = [(5, 0, 0)] + new_lines
+
+    @api.depends('factory_succ', 'factory_line_ids.confirmed')
+    def _compute_all_factory_confirmed(self):
+        for rec in self:
+            # 沒選任何廠區 → 視為無需確認，直接 True
+            if not rec.factory_succ:
+                rec.all_factory_confirmed = True
+            else:
+                # 有選廠區 → 全部 line.confirmed 才算 True
+                needed_factories = rec.factory_succ
+                lines = rec.factory_line_ids
+                # 工商保險：line 數量也要跟選的廠區一樣
+                if not lines or len(lines) != len(needed_factories):
+                    rec.all_factory_confirmed = False
+                else:
+                    rec.all_factory_confirmed = all(lines.mapped('confirmed'))
+    
     @api.onchange('scan_input')
     def _onchange_scan_input(self):
         if self.scan_input:
@@ -212,7 +258,14 @@ class MakeIn(models.Model):
     ####权限
     
     is_in_by_sc = fields.Boolean(compute='_compute_is_in_by_sc')
+    is_in_by_gly = fields.Boolean(compute='_compute_is_in_by_gly')
     
+    @api.depends()
+    def _compute_is_in_by_gly(self):
+        group_dtsc_gly = self.env.ref('dtsc.group_dtsc_gly', raise_if_not_found=False)
+        user = self.env.user
+        self.is_in_by_gly = group_dtsc_gly and user in group_dtsc_gly.users
+        
     def everyday_set(self):
         # 設置時區
         print("###make in cron###")
@@ -394,6 +447,9 @@ class MakeIn(models.Model):
     def stock_in(self):
         install_name = self.name.replace("B","W")
         
+        if not self.all_factory_confirmed:
+            raise UserError("請先確認廠區是否都已確認！")
+        
         for record in self.order_ids:
             if not record.outman:
                 raise UserError("請設置每一條輸出員工！")
@@ -555,11 +611,35 @@ class MakeLine(models.Model):
     output_material = fields.Char(string='輸出材質', compute='_compute_output_material')
     production_size = fields.Char(string='製作尺寸', compute='_compute_production_size')
     lengbiao = fields.Char(string='裱', compute='_compute_lengbiao')
-    outman = fields.Many2one('dtsc.userlist',string="輸出" , domain=[('worktype_ids.name', '=', '輸出')])
+    outman = fields.Many2one('dtsc.userlist',string="輸出" , domain=[('worktype_ids.name', '=', '輸出'),("is_disabled","=",False)])
     is_modified = fields.Boolean(string="is modified",default = False)
     is_stock_off = fields.Boolean(default = False,compute="_compute_is_stock_off") 
 
     is_select = fields.Boolean("簽名")
+    def clean_lengbiao(self):
+        self.lengbiao_sign = ""
+        self.checkout_line_id.lengbiao_sign = ""
+    
+    def clean_guoban(self):
+        self.guoban_sign = ""
+        self.checkout_line_id.guoban_sign = ""
+    def clean_caiqie(self):
+        self.caiqie_sign = ""
+        self.checkout_line_id.caiqie_sign = ""
+        
+    def clean_houzhi(self):
+        self.houzhi_sign = ""
+        self.checkout_line_id.houzhi_sign = ""
+        
+    def clean_pinguan(self):
+        self.pinguan_sign = ""
+        self.checkout_line_id.pinguan_sign = ""
+    def clean_daichuhuo(self):
+        self.daichuhuo_sign = ""
+        self.checkout_line_id.daichuhuo_sign = ""
+    def clean_yichuhuo(self):
+        self.yichuhuo_sign = ""
+        self.checkout_line_id.yichuhuo_sign = ""    
         
     ####权限
     

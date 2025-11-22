@@ -48,6 +48,7 @@ odoo.define('dtsc.order', function (require) {
 			this.customer_class_id = 0; 
 			this.custom_init_name = ''; 
 			this.nop = false; 
+			this.isSubmitting = false; // 添加订单提交状态标志位
 			this.previewRecordId = null;
 		},
         start: function () {
@@ -156,11 +157,54 @@ odoo.define('dtsc.order', function (require) {
                 var fileName = $table.find('#project_product_name').val();
                 var folder = this.custom_init_name;
                 var file = $fileInput[0].files[0];
+				var fileName_original = file ? file.name : "";  // 使用文件的原始名称
 
                 if (file) {
+                    // 新的文件名格式校验和栏位比对
+                    // 文件名格式：案件摘要-檔名-寬x高cmx數量.xxx
+                    // 允许x、×、*，cm可有可无
+                    const newPattern = /^(.+)-(.+)-(\d+)[x×*](\d+)(cm)?[x×*](\d+)/i;
+                    debugLog("fileName_original:", fileName_original);
+                    var $uploadStatusDiv = $fileInput.siblings('.upload-status');
+                    var match = fileName_original.replace(/\.[^/.]+$/, "").match(newPattern); // 去掉扩展名再匹配
+                    if (!match) {
+                        $uploadStatusDiv.text('文件名格式错误，需为"案件摘要-檔案名稱-寬x高cmx數量"，如：專案A-橫幅-100x200cmx3').css('color', 'red').removeClass('d-none');
+                        reject('文件名格式不正确');
+                        return;
+                    }
+                    // 获取栏位值
+                    var projectName = $("input[name='project_name']").val().trim();
+                    var fileNameField = $table.find('#project_product_name').val().trim();
+                    var param1 = $table.find('#param1').val().trim();
+                    var param2 = $table.find('#param2').val().trim();
+                    var quantity = $table.find('#quantity').val().trim();
+                    // 比对
+                    var mismatchMessages = [];
+                    if (match[1] !== projectName) {
+                        mismatchMessages.push(`案件摘要不一致，表單值：「${projectName}」，檔案值：「${match[1]}」，請修改一致。`);
+                    }
+                    if (match[2] !== fileNameField) {
+                        mismatchMessages.push(`檔案名稱不一致，表單值：「${fileNameField}」，檔案值：「${match[2]}」，請修改一致。`);
+                    }
+                    if (match[3] !== param1) {
+                        mismatchMessages.push(`寬度不一致，表單值：「${param1}」，檔案值：「${match[3]}」，請修改一致。`);
+                    }
+                    if (match[4] !== param2) {
+                        mismatchMessages.push(`高度不一致，表單值：「${param2}」，檔案值：「${match[4]}」，請修改一致。`);
+                    }
+                    if (match[6] !== quantity) {
+                        mismatchMessages.push(`數量不一致，表單值：「${quantity}」，檔案值：「${match[6]}」，請修改一致。`);
+                    }
+                    if (mismatchMessages.length > 0) {
+                        $uploadStatusDiv.html(mismatchMessages.join('<br>')).css('color', 'red').removeClass('d-none');
+                        reject('文件名与表单栏位不一致');
+                        return;
+                    }
+
                     var formData = new FormData();
                     formData.append('custom_file', file);
                     formData.append('filename', fileName);
+                    formData.append('fileName_original', fileName_original);
                     formData.append('folder', folder);
 
                     // 获取与当前文件输入控件相关联的进度条和上传状态显示<div>
@@ -188,27 +232,40 @@ odoo.define('dtsc.order', function (require) {
                                 return xhr;
                             },
                             success: function(response) {
-                                console.log(response.message);
+                                debugLog('Upload response:', response);
                                 if (response.success) {
-                                    // 更新上传状态消息并显示
-                                    $uploadStatusDiv.text('File uploaded successfully').css('color', 'green').removeClass('d-none');
+                                    // 显示文件尺寸信息
+                                    var sizeInfo = response.size_info;
+                                    var filenameSize = sizeInfo.filename_size;
+                                    var actualSize = {
+                                        width_mm: sizeInfo.width_mm,
+                                        height_mm: sizeInfo.height_mm
+                                    };
+                                    
+                                    var sizeMessage = `檔案上傳成功\n` +
+                                        `檔案名稱尺寸: ${filenameSize.width_mm.toFixed(2)}×${filenameSize.height_mm.toFixed(2)}mm\n` +
+                                        `實際尺寸: ${actualSize.width_mm.toFixed(2)}×${actualSize.height_mm.toFixed(2)}mm`;
+                                    
+                                    $uploadStatusDiv.html(sizeMessage.replace(/\n/g, '<br>')).css('color', 'green').removeClass('d-none');
                                     $progressBar.hide(); // 隐藏进度条
                                     resolve(response.filename); // 文件上传成功
                                 } else {
                                     // 更新上传状态消息并显示
-                                    $uploadStatusDiv.text('Upload failed').css('color', 'red').removeClass('d-none');
-                                    reject(response.error);
+                                    var errorMessage = response.message || response.error || '上传失败';
+                                    $uploadStatusDiv.html(errorMessage.replace(/\n/g, '<br>')).css('color', 'red').removeClass('d-none');
+                                    $progressBar.hide(); // 隐藏进度条
+                                    reject(errorMessage);
                                 }
                             },
                             error: function(xhr, status, error) {
                                 // 更新上传状态消息并显示
-                                $uploadStatusDiv.text('Upload error').css('color', 'red').removeClass('d-none');
+                                $uploadStatusDiv.text('Upload error: ' + error).css('color', 'red').removeClass('d-none');
                                 reject(error);
                             }
                         });
                     } catch (error) {
                         // 更新上传状态消息并显示
-                        $uploadStatusDiv.text('File upload error').css('color', 'red').removeClass('d-none');
+                        $uploadStatusDiv.text('File upload error: ' + error).css('color', 'red').removeClass('d-none');
                         reject(error);
                     }
                 } else {
@@ -373,7 +430,8 @@ odoo.define('dtsc.order', function (require) {
                         }
                         debugLog("New record ID:", new_id);
                         alert("感謝您的訂購！！");
-                        location.reload();  // 刷新页面
+                        //location.reload();  // 刷新页面
+						window.location.href = window.location.origin + '/order/list';
                     })
                     .catch(function(error){
                         console.error("Error:", error);
@@ -1431,9 +1489,30 @@ odoo.define('dtsc.order', function (require) {
 
 			// 确认订购按钮事件
 			$(document).off('click', '#ModelOrderLine .btn_checkout').on('click', '#ModelOrderLine .btn_checkout', function() {
+				if (self.isSubmitting) {
+					return; // 如果正在提交中，直接返回
+				}
+				
+				// 禁用按钮并改变文字
+				var $submitBtn = $(this);
+				$submitBtn.prop('disabled', true).text('訂單提交中...');
+				
+				// 设置提交状态
+				self.isSubmitting = true;
+				
 				// 这里可以添加您的确认订购逻辑
 				$('#ModelOrderLine').modal('hide');
-				self.prepareCheckoutData();
+				self.prepareCheckoutData().then(() => {
+					// 提交完成后重置状态
+					self.isSubmitting = false;
+					$submitBtn.prop('disabled', false).text('確認訂購');
+				}).catch(error => {
+					// 发生错误时也要重置状态
+					console.error('訂單提交失敗:', error);
+					self.isSubmitting = false;
+					$submitBtn.prop('disabled', false).text('確認訂購');
+					alert('訂單提交失敗，請稍後重試');
+				});
 			});
 			
 

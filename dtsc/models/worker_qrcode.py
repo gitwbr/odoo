@@ -15,10 +15,17 @@ import qrcode
 from io import BytesIO
 import logging
 _logger = logging.getLogger(__name__)
+class Department(models.Model):
+    _name = "dtsc.department"
+    
+    name = fields.Char("部門")
+    bmzg = fields.Many2one('dtsc.workqrcode', string='部門主管')
+
 class WorkTime(models.Model):
     _name = "dtsc.worktime"
     
     name = fields.Char("員工姓名")
+    workqrcode_id = fields.Many2one('dtsc.workqrcode',string="員工姓名")
     checkout_id = fields.Many2one("dtsc.checkout",string="大圖訂單")
     checkoutline_id = fields.Many2one("dtsc.checkoutline",string="大圖訂單項次")
     start_time = fields.Datetime("開始時間")
@@ -78,15 +85,53 @@ class WorkTime(models.Model):
 class WorkerQRcode(models.Model):
     _name = "dtsc.workqrcode"
     
-    name=fields.Char("員工姓名")
+    name=fields.Char("員工姓名",required=True)
+    work_id = fields.Char("員工編號")
     bar_image = fields.Binary("QRcode", compute='_generate_qrcode_image1')
     bar_image_code = fields.Char("qrcode code", compute='_generate_bar_image_code',store=True)
     line_user_id = fields.Char("Line ID")
+    user_id = fields.Many2one('res.users', string="對應使用者")
+    sys_password = fields.Char(string="對應使用者密碼")
     
-    is_zg = fields.Boolean("主管")
-    is_qh = fields.Boolean("簽核")
+    user_id = fields.Many2one(
+        "res.users", 
+        string="對應使用者", 
+        domain=lambda self: [
+            ('groups_id', 'in', self.env.ref('base.group_user').id),  # 內部用戶群組
+            ('active', '=', True)  # 只顯示啟用的用戶
+        ]
+    )
+    is_zg = fields.Boolean("請購單確認")
+    is_qh = fields.Boolean("請購單簽核")
+    is_daka_qh = fields.Boolean("打卡簽核")
+    in_company_date = fields.Date("入職日期")
+    out_company_date = fields.Date("離職日期")
     
+    in_time = fields.Char('上班時間')
+    out_time = fields.Char('下班時間')
     
+    tx_locked = fields.Float(string="特休(過期/小時)",default=0)
+    tx_days = fields.Float(string="特休(小時)",default=0)
+    
+    bj_locked = fields.Float(string="病假(過期/小時)",default=0)
+    bj_days = fields.Float(string="病假(小時)",default=240)
+    
+    sj_locked = fields.Float(string="事假(過期/小時)",default=0)
+    sj_days = fields.Float(string="事假(小時)",default=112)
+    
+    slj_locked = fields.Float(string="生理假(過期/小時)",default=0)
+    slj_days = fields.Float(string="生理假(小時)",default=24)
+    
+    jtzgj_locked = fields.Float(string="家庭照顧假(過期/小時)",default=0)
+    jtzgj_days = fields.Float(string="家庭照顧假(小時)",default=56)
+    
+    department = fields.Many2one("dtsc.department",string="所屬部門")
+    
+    userlistbefore_id = fields.Many2one('dtsc.userlistbefore',string='綁定印前人員',domain=[("is_disabled","=",False)])
+    userlist_id = fields.Many2one('dtsc.userlist',string='綁定產綫人員',domain=[("is_disabled","=",False)])
+    reworklist_id = fields.Many2one('dtsc.reworklist',string='綁定重製人員',domain=[("is_disabled","=",False)])
+    
+
     @api.depends("name")
     def _generate_bar_image_code(self):
         for record in self:
@@ -145,7 +190,7 @@ class WorkerQRcode(models.Model):
 class CheckOut(models.Model):
     _inherit = "dtsc.checkoutline"     
     
-    outman = fields.Many2one('dtsc.userlist',string="輸出" , domain=[('worktype_ids.name', '=', '輸出')],store=True)    
+    outman = fields.Many2one('dtsc.userlist',string="輸出" , domain=[('worktype_ids.name', '=', '輸出'),("is_disabled","=",False)],store=True)    
     lengbiao_sign = fields.Char("冷裱")
     guoban_sign = fields.Char("過板")
     caiqie_sign = fields.Char("裁切")
@@ -229,7 +274,7 @@ class CheckOut(models.Model):
 class MakeInLine(models.Model):
     _inherit = "dtsc.makeinline"  
     
-    meigong = fields.Many2one('dtsc.userlistbefore',string="美工")
+    meigong = fields.Many2one('dtsc.userlistbefore',string="美工",domain=[("is_disabled","=",False)])
     
     lengbiao_sign = fields.Char("冷裱")
     guoban_sign = fields.Char("過板")
@@ -268,27 +313,80 @@ class MakeInLine(models.Model):
         for record in self:
             record.checkout_line_id.write({"outman":record.outman.id})
             worktimeObj = self.env['dtsc.worktime'].sudo().search([("checkoutline_id", "=", record.checkout_line_id.id)])
+            workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', record.outman.id)], limit=1)
+            if workObj:
+                if worktimeObj:
+                    worktimeObj.sudo().write({
+                        # 'name': record.outman.name,
+                        'workqrcode_id': workObj.id,
+                        'name': record.outman.name,
+                        'checkoutline_id': record.checkout_line_id.id,
+                        'checkout_id': record.checkout_line_id.checkout_product_id.id,
+                        'work_type': 'sc',  # 这次更新的工种类型
+                        'in_out_type' : 'wn',
+                        'start_time': fields.Datetime.now(),  # 更新开始时间
+                    })
+                else:
+                    self.env['dtsc.worktime'].sudo().create({
+                        # 'name': record.outman.name,
+                        'workqrcode_id': workObj.id,
+                        'checkoutline_id': record.checkout_line_id.id,
+                        'checkout_id': record.checkout_line_id.checkout_product_id.id,
+                        'work_type': 'sc',  # 輸出
+                        'in_out_type' : 'wn',
+                        'start_time': fields.Datetime.now(),  # 扫码时的开始时间
+                    })
+    
 
-            if worktimeObj:
-                worktimeObj.sudo().write({
-                    'name': record.outman.name,
-                    'checkoutline_id': record.checkout_line_id.id,
-                    'checkout_id': record.checkout_line_id.checkout_product_id.id,
-                    'work_type': 'sc',  # 这次更新的工种类型
-                    'in_out_type' : 'wn',
-                    'start_time': fields.Datetime.now(),  # 更新开始时间
-                })
-            else:
-                self.env['dtsc.worktime'].sudo().create({
-                    'name': record.outman.name,
-                    'checkoutline_id': record.checkout_line_id.id,
-                    'checkout_id': record.checkout_line_id.checkout_product_id.id,
-                    'work_type': 'sc',  # 輸出
-                    'in_out_type' : 'wn',
-                    'start_time': fields.Datetime.now(),  # 扫码时的开始时间
-                })
-                
-    @api.onchange("lengbiao_sign")
+    def write(self, vals):
+        res = super().write(vals)
+
+        for rec in self:
+            try:
+                if 'lengbiao_sign' in vals:
+                    rec._onchange_lengbiao_sign()
+            except Exception as e:
+                _logger.warning(f"[lengbiao_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'guoban_sign' in vals:
+                    rec._onchange_guoban_sign()
+            except Exception as e:
+                _logger.warning(f"[guoban_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'caiqie_sign' in vals:
+                    rec._onchange_caiqie_sign()
+            except Exception as e:
+                _logger.warning(f"[caiqie_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'houzhi_sign' in vals:
+                    rec._onchange_houzhi_sign()
+            except Exception as e:
+                _logger.warning(f"[houzhi_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'pinguan_sign' in vals:
+                    rec._onchange_pinguan_sign()
+            except Exception as e:
+                _logger.warning(f"[pinguan_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'daichuhuo_sign' in vals:
+                    rec._onchange_daichuhuo_sign()
+            except Exception as e:
+                _logger.warning(f"[daichuhuo_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'yichuhuo_sign' in vals:
+                    rec._onchange_yichuhuo_sign()
+            except Exception as e:
+                _logger.warning(f"[yichuhuo_sign] onchange 發生錯誤：{e}")
+
+        return res
+    
+    # @api.onchange("lengbiao_sign")
     def _onchange_lengbiao_sign(self):
         for record in self:
             # record.checkout_line_id.lengbiao_sign = record.lengbiao_sign
@@ -300,9 +398,12 @@ class MakeInLine(models.Model):
                     record.lengbiao_sign = ""
             else:
                 split_values = record.lengbiao_sign.split(',')
-                last_name = split_values[-1]    
+                last_name = split_values[-1]               
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'lb',  # 冷裱
@@ -317,7 +418,7 @@ class MakeInLine(models.Model):
                 
                 
                 
-    @api.onchange("guoban_sign")
+    # @api.onchange("guoban_sign")
     def _onchange_guoban_sign(self):
         for record in self:
             record.checkout_line_id.write({"guoban_sign":record.guoban_sign}) 
@@ -329,8 +430,11 @@ class MakeInLine(models.Model):
             else:
                 split_values = record.guoban_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'gb',  # 冷裱
@@ -342,7 +446,7 @@ class MakeInLine(models.Model):
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 })
                     
-    @api.onchange("caiqie_sign")
+    # @api.onchange("caiqie_sign")
     def _onchange_caiqie_sign(self):
         for record in self:
             record.checkout_line_id.write({"caiqie_sign":record.caiqie_sign}) 
@@ -354,8 +458,11 @@ class MakeInLine(models.Model):
             else:
                 split_values = record.caiqie_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'cq',  # 冷裱
@@ -367,7 +474,7 @@ class MakeInLine(models.Model):
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 })
     
-    @api.onchange("houzhi_sign")
+    # @api.onchange("houzhi_sign")
     def _onchange_houzhi_sign(self):
         for record in self:
             record.checkout_line_id.write({"houzhi_sign":record.houzhi_sign}) 
@@ -379,8 +486,11 @@ class MakeInLine(models.Model):
             else:
                 split_values = record.houzhi_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'hz',  # 冷裱
@@ -392,7 +502,7 @@ class MakeInLine(models.Model):
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 })     
                 
-    @api.onchange("pinguan_sign")
+    # @api.onchange("pinguan_sign")
     def _onchange_pinguan_sign(self):
         for record in self:
             record.checkout_line_id.write({"pinguan_sign":record.pinguan_sign}) 
@@ -404,8 +514,11 @@ class MakeInLine(models.Model):
             else:
                 split_values = record.pinguan_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'pg',  # 冷裱
@@ -417,7 +530,7 @@ class MakeInLine(models.Model):
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 })
                 
-    @api.onchange("daichuhuo_sign")
+    # @api.onchange("daichuhuo_sign")
     def _onchange_daichuhuo_sign(self):
         for record in self:
             record.checkout_line_id.write({"daichuhuo_sign":record.daichuhuo_sign}) 
@@ -429,8 +542,11 @@ class MakeInLine(models.Model):
             else:
                 split_values = record.daichuhuo_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'dch',  # 冷裱
@@ -442,7 +558,7 @@ class MakeInLine(models.Model):
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 })
                 
-    @api.onchange("yichuhuo_sign")
+    # @api.onchange("yichuhuo_sign")
     def _onchange_yichuhuo_sign(self):
         for record in self:
             record.checkout_line_id.write({"yichuhuo_sign":record.yichuhuo_sign}) 
@@ -454,8 +570,11 @@ class MakeInLine(models.Model):
             else:
                 split_values = record.yichuhuo_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'ych',  # 冷裱
@@ -502,7 +621,39 @@ class MakeOutLine(models.Model):
                 # print("Generated bar_image (type=%s): %s", type(bar_image), bar_image)
                 record.bar_image = bar_image
     
-    @api.onchange("houzhi_sign")
+    
+    def write(self, vals):
+        res = super().write(vals)
+
+        for rec in self:
+            try:
+                if 'houzhi_sign' in vals:
+                    rec._onchange_houzhi_sign()
+            except Exception as e:
+                _logger.warning(f"[houzhi_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'pinguan_sign' in vals:
+                    rec._onchange_pinguan_sign()
+            except Exception as e:
+                _logger.warning(f"[pinguan_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'daichuhuo_sign' in vals:
+                    rec._onchange_daichuhuo_sign()
+            except Exception as e:
+                _logger.warning(f"[daichuhuo_sign] onchange 發生錯誤：{e}")
+
+            try:
+                if 'yichuhuo_sign' in vals:
+                    rec._onchange_yichuhuo_sign()
+            except Exception as e:
+                _logger.warning(f"[yichuhuo_sign] onchange 發生錯誤：{e}")
+
+        return res
+    
+    
+    # @api.onchange("houzhi_sign")
     def _onchange_houzhi_sign(self):
         for record in self:
             record.checkout_line_id.houzhi_sign = record.houzhi_sign
@@ -513,9 +664,12 @@ class MakeOutLine(models.Model):
                     record.houzhi_sign = ""
             else:
                 split_values = record.houzhi_sign.split(',')
-                last_name = split_values[-1]    
+                last_name = split_values[-1] 
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)   
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'hz',  # 冷裱
@@ -527,7 +681,7 @@ class MakeOutLine(models.Model):
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 }) 
     
-    @api.onchange("pinguan_sign")
+    # @api.onchange("pinguan_sign")
     def _onchange_pinguan_sign(self):
         for record in self:
             record.checkout_line_id.pinguan_sign = record.pinguan_sign
@@ -539,8 +693,11 @@ class MakeOutLine(models.Model):
             else:
                 split_values = record.pinguan_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'pg',  # 冷裱
@@ -552,7 +709,7 @@ class MakeOutLine(models.Model):
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 })   
                 
-    @api.onchange("daichuhuo_sign")
+    # @api.onchange("daichuhuo_sign")
     def _onchange_daichuhuo_sign(self):
         for record in self:
             record.checkout_line_id.daichuhuo_sign = record.daichuhuo_sign
@@ -563,9 +720,12 @@ class MakeOutLine(models.Model):
                     record.daichuhuo_sign = ""
             else:
                 split_values = record.daichuhuo_sign.split(',')
-                last_name = split_values[-1]    
+                last_name = split_values[-1]  
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)  
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'dch',  # 冷裱
@@ -576,7 +736,7 @@ class MakeOutLine(models.Model):
                 worktimeObjs.write({
                     'end_time': fields.Datetime.now(),  # 扫码时的开始时间
                 })
-    @api.onchange("yichuhuo_sign")
+    # @api.onchange("yichuhuo_sign")
     def _onchange_yichuhuo_sign(self):
         for record in self:
             record.checkout_line_id.yichuhuo_sign = record.yichuhuo_sign
@@ -588,8 +748,11 @@ class MakeOutLine(models.Model):
             else:
                 split_values = record.yichuhuo_sign.split(',')
                 last_name = split_values[-1]    
+                userlistObj = self.env['dtsc.userlist'].search([('name', '=', last_name)], limit=1)
+                workObj = self.env['dtsc.workqrcode'].search([('userlist_id', '=', userlistObj.id)], limit=1)
                 self.env['dtsc.worktime'].sudo().create({
                     'name': last_name,
+                    'workqrcode_id': workObj.id,
                     'checkoutline_id': record.checkout_line_id.id,
                     'checkout_id': record.checkout_line_id.checkout_product_id.id,
                     'work_type': 'ych',  # 冷裱
@@ -778,7 +941,7 @@ class MakeOut(models.Model):
                 record.write({"is_select":False})   
         return {"status": "success"}  # 返回成功的响应
 
-  
+'''  
 class ReWorkList(models.Model):
     _inherit = "dtsc.reworklist"
     
@@ -944,7 +1107,7 @@ class UserList(models.Model):
                 self.env['dtsc.workqrcode'].create({'name': name})
                 
         return res
-        
+'''        
         
 class vatLogin(models.Model):
     _name = "dtsc.vatlogin"
@@ -952,7 +1115,8 @@ class vatLogin(models.Model):
     
     vat = fields.Char("帳號")
     vat_password = fields.Char("密碼")
-    partner_id = fields.Many2one("res.partner")
+    partner_id = fields.Many2one("res.partner",string="客戶")
+    name = fields.Char(related="partner_id.name",string="客戶")
     coin_can_cust = fields.Boolean(related="partner_id.coin_can_cust")
     custom_id = fields.Char(related="partner_id.custom_id" ,store=True)
     search_line = fields.Char(compute= "_compute_search_line",store = True)

@@ -79,6 +79,7 @@
 				<field name="shuibie"  readonly="1"  />
 				<field name="estimated_date"  readonly="1"  />
 				<field name="delivery_order"  readonly="1"  />
+				<field name="name" string="大圖訂單號" readonly="1"  />
 				<field name="record_price_and_construction_charge" sum="Total" width="140px" string="金額(未)"  />
 				<!-- <field name="construction_charge_price" sum="Total" string="施工金額(未)"  /> -->
 				<field name="tax_of_price" sum="Total" width="140px"  string="稅額" />
@@ -155,8 +156,9 @@
 		<field name="arch" type="xml">
 			<tree>			
 				<!-- <group expand="1" string="分組結果">			 -->
-					<field name="machineAndproduct" string="類別" readonly="1"  />
-					<field name="saleuser"  readonly="1"  />
+					<field name="checkout_product_id"  readonly="1"  />
+					<field name="saleuser"  readonly="1" invisible="1" />
+					<field name="machineAndproduct" string="類別" invisible="1" readonly="1"  />
 					<field name="total_units" sum="Total" width="140px"  readonly="1"  />
 					<field name="price" sum="Total" width="140px"  readonly="1"  />
 					<field name="estimated_date" readonly="1"  />
@@ -166,6 +168,21 @@
 		</field>	
 	</record>
 	
+	<record id="search_checkoutline_product" model="ir.ui.view">
+		<field name="name">dtsc.checkoutline.product.search.report</field>
+		<field name="model">dtsc.checkoutline</field>
+		<field name="arch" type="xml">
+			<search>
+				<searchpanel>
+                    <field name="report_year" string="年" select="multi"/>
+                    <field name="report_month" string="月" context="{'group_by': 'report_year'}" select="multi"/>
+
+            </searchpanel>
+			<filter string="當月數據" name="custom_26_to_25" 
+				domain="[('estimated_date', '>=', context.get('default_start_date')), ('estimated_date', '&lt;=', context.get('default_end_date'))]"/>	
+			</search>
+		</field>		
+	</record>
 	<!-- <record id="view_kanban_checkoutline" model="ir.ui.view"> -->
 		<!-- <field name="name">dtsc.checkoutline.kanban</field> -->
 		<!-- <field name="model">dtsc.checkoutline</field> -->
@@ -300,21 +317,7 @@
 		</field>        
 	</record>
 
-	<record id="search_checkoutline_product" model="ir.ui.view">
-		<field name="name">dtsc.checkoutline.product.search.report</field>
-		<field name="model">dtsc.checkoutline</field>
-		<field name="arch" type="xml">
-			<search>
-				<searchpanel>
-                    <field name="report_year" string="年" select="multi"/>
-                    <field name="report_month" string="月" context="{'group_by': 'report_year'}" select="multi"/>
 
-            </searchpanel>
-			<filter string="當月數據" name="custom_26_to_25" 
-				domain="[('estimated_date', '>=', context.get('default_start_date')), ('estimated_date', '&lt;=', context.get('default_end_date'))]"/>	
-			</search>
-		</field>		
-	</record>
 	
 	<record id="search_makeout_report" model="ir.ui.view">
 		<field name="name">dtsc.makeout.search.report</field>

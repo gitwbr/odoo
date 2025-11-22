@@ -6,7 +6,7 @@
     'category': 'Accounting/Payment Providers',
     'sequence': 350,
     'summary': "A payment provider for running fake payment flows for newebpay purposes.v3(CREDIT)",
-    'depends': ['web','payment'],
+    'depends': ['web','payment','account_payment'],
     'data': [
         'views/payment_newebpay_templates.xml',
         'views/payment_templates.xml',

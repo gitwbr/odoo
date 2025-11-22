@@ -132,6 +132,7 @@
 			<xpath expr="//field[@name='partner_id']" position="after">
 				<field name="is_return_goods"/>
 				<field name="custom_id"/>
+				<!-- <field name="invoice_origin"/> -->
 			</xpath>
 			<xpath expr="//field[@name='date_approve']" position="after">
 				<field name="effective_date"/>
@@ -169,6 +170,7 @@
 					<field name="my_state" select="one"/>
 				</searchpanel>
 				<filter string="隱藏已轉應付" name="exclude_state_4" domain="[('my_state', '!=', 4)]"/> 
+				<filter string="隱藏作廢" name="no_5" domain="[('my_state', '!=', 5)]"/> 
 				<separator/>
 				<filter string="隱藏無需開單單據" name="exclude_invoice_status_no" domain="[('invoice_status', '!=', 'no')]"/> 
 				<field name="search_line" string="全部信息"/>				

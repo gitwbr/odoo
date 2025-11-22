@@ -148,6 +148,16 @@
 						</group>
 					</group>
 				</page>
+				<page string="Line推送列表">
+					<field name="partnerlinebind_ids">
+						<tree editable="bottom">
+							<field name="name" readonly="1"/>
+							<field name="line_user_id"  readonly="1"/>
+							<field name="comment"/>
+							<field name="is_active"/>
+						</tree>
+					</field>
+				</page>
 			</xpath>
 			<xpath expr="//field[@name='company_type']" position="attributes">
 				<attribute name="invisible">1</attribute>
@@ -194,6 +204,9 @@
 			<xpath expr="//field[@name='parent_id']" position="after">
 				<field name="default_uom_id" class="oe_inline"/>
 			</xpath>
+					<xpath expr="//field[@name='property_account_income_categ_id']" position="attributes">
+				<attribute name="string">收入帳戶</attribute>	
+			</xpath>
 		</field>
 	</record>
 	
@@ -217,4 +230,53 @@
 		</field>
 	</record>
 	
+	
+	<record id="view_report_center_form" model="ir.ui.view">
+		<field name="name">report.center.form</field>
+		<field name="model">dtsc.reportcenter</field>
+		<field name="arch" type="xml">
+			<form string="報表查詢中心">
+					<header>
+						<button name="export_excel" type="object" string="匯出 Excel" class="btn-primary"/> 
+					</header>
+				<sheet>
+				
+					<group>
+						<field name="report_type"/>
+						<field name="start_date"/>
+						<field name="end_date"/>
+						<field name="partner_id" attrs="{'invisible': [('report_type','!=', 'partner_history')]}" domain="[('customer_rank', '>', 0)]" />
+					</group>
+				</sheet>
+			</form>
+		</field>
+	</record>
+	
+	<data>
+		<record id="default_report_center" model="dtsc.reportcenter">
+			<field name="name">報表中心</field>
+		</record>
+	</data>
+	
+ <record id="view_partner_form_labels_fix" model="ir.ui.view">
+      <field name="name">res.partner.form.labels.fix</field>
+      <field name="model">res.partner</field>
+      <field name="inherit_id" ref="base.view_partner_form"/>
+      <field name="arch" type="xml">
+
+        <!-- 把「Invoiced」那顆統計按鈕的顯示文字改成「發票金額」(或你要的字) -->
+        <xpath expr="//div[@name='button_box']//button[field[@name='supplier_invoice_count']]/field[@name='supplier_invoice_count']"
+               position="attributes">
+          <attribute name="string">供應商帳單</attribute>
+        </xpath>
+
+        <!-- Partner Ledger 這顆，把屬性 string/title 改成「業務夥伴分類帳」 -->
+        <xpath expr="//div[@name='button_box']//button[@id='partner_ledger_button' or @name='open_partner_ledger']"
+               position="attributes">
+          <attribute name="string">業務夥伴分類帳</attribute>
+          <attribute name="title">業務夥伴分類帳</attribute>
+        </xpath>
+
+      </field>
+    </record>
 </odoo>

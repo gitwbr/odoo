@@ -16,6 +16,7 @@ from . import saleorder
 from . import product_att_val
 from . import make_out
 from . import make_in
+from . import make_om
 from . import installproduct
 from . import stock
 from . import barcode
@@ -38,3 +39,6 @@ from . import order_preview
 from . import ir_ui_menu
 from . import linebot
 from . import pettycash
+from . import calendar
+from . import performance
+from . import interoperate

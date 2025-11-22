@@ -46,11 +46,18 @@
 		<field name="search_view_id" ref="search_makeout"/>
     </record>
 
+	<record model="ir.actions.act_window" id="dtsc.action_window_make_om">
+      <field name="name">代工單</field>
+      <field name="res_model">dtsc.makeom</field>
+      <field name="view_mode">tree,form,kanban</field>
+		<field name="search_view_id" ref="search_makeom"/>
+    </record>
+	
 	<record model="ir.actions.act_window" id="dtsc.action_window_install">
       <field name="name">施工工單</field>
       <field name="res_model">dtsc.installproduct</field>
       <field name="view_mode">tree,form,kanban</field>
-	  <field name="domain">[('is_invisible','=',False), ('install_state', '!=', 'cancel')]</field>
+	  <field name="domain">[('is_invisible','=',False)]</field>
     </record>
 
 	<record model="ir.actions.act_window" id="dtsc.action_window_deliveryorder">
@@ -105,7 +112,7 @@
 	<record id="action_checkout" model="ir.actions.act_url">
 		<field name="name">Checkout Page</field>
 		<field name="type">ir.actions.act_url</field>
-		<field name="url">/checkout</field>
+		<field name="url">/public_web_order</field>
 		<field name="target">new</field>
 	</record>
 	
@@ -143,7 +150,8 @@
 		<field name="name">機台與變價設定</field> 
 		<field name="res_model">dtsc.machineprice</field>
 		<field name="view_mode">tree,form</field>
-		<field name="type">ir.actions.act_window</field>
+		<field name="type">ir.actions.act_window</field>		
+		<field name="domain">[('is_disabled','=',False)]</field>
 	</record>
 
 	<record id="dtsc.worker_name_list_before" model="ir.actions.act_window">
@@ -173,6 +181,8 @@
 		<field name="name">員工Qrcode</field> 
 		<field name="res_model">dtsc.workqrcode</field>
 		<field name="view_mode">tree,form</field>
+		<field name="view_id" ref="report_workqrcode_treee"/>
+      <field name="context">{'search_default_zzry': 1}</field>
 	</record>
 	<record id="dtsc.vat_login" model="ir.actions.act_window">
 		<field name="name">統編帳號密碼</field> 
@@ -205,9 +215,9 @@
       <field name="res_model">purchase.order</field>
       <field name="view_mode">tree,form,kanban</field>
       <!-- <field name="context">{'group_by' : 'partner_display_name','search_default_exclude_state_4': 1,'search_default_exclude_invoice_status_no': 1}</field> -->
-      <field name="context">{'group_by' : 'partner_display_name','search_default_exclude_state_4': 1}</field>
+      <field name="context">{'group_by' : 'partner_display_name','search_default_exclude_state_4': 1,'search_default_no_5',1}</field>
 	  <!-- <field name="domain">[('my_state', '!=', '5')]</field> -->
-	  <field name="domain">[]</field>
+	  <!-- <field name="domain">[]</field> -->
     </record>
 	
 	<record id="action_open_my_purchase_orders" model="ir.actions.server">
@@ -268,7 +278,24 @@
       <field name="res_model">dtsc.linebot</field>
       <field name="view_mode">tree,form</field>
 	</record>
+	
+	<record model="ir.actions.act_window" id="dtsc.department_setting">
+      <field name="name">部門</field>
+      <field name="res_model">dtsc.department</field>
+      <field name="view_mode">tree,form</field>
+	</record>
+	<record model="ir.actions.act_window" id="dtsc.factory_setting">
+      <field name="name">廠區</field>
+      <field name="res_model">dtsc.factory</field>
+      <field name="view_mode">tree,form</field>
+	</record>
     
+	
+	<record model="ir.actions.act_window" id="dtsc.interoperate_setting">
+      <field name="name">系統互連</field>
+      <field name="res_model">dtsc.interoperate</field>
+      <field name="view_mode">tree,form</field>
+	</record>
     <!-- <record model="ir.actions.act_window" id="dtsc.bh">
         <field name="name">補貨</field>
         <field name="res_model">stock.warehouse.orderpoint</field>
@@ -403,7 +430,7 @@
 	</record>
 
 	<record id="action_product_chart_dashboard" model="ir.actions.act_window">
-        <field name="name">產品出貨統計表</field>
+        <field name="name">材料出貨統計表</field>
 		<field name="res_model">dtsc.checkoutline</field>
 		<field name="view_mode">kanban,graph,tree</field>
 		<field name="domain">[('checkout_product_id.checkout_order_state','in',["price_review_done","receivable_assigned"])]</field>
@@ -463,6 +490,11 @@
 		<field name="res_model">dtsc.attendance</field>
 		<field name="view_mode">tree,form</field>
 	</record>
+	<record model="ir.actions.act_window" id="action_leave">
+		<field name="name">請假表</field>
+		<field name="res_model">dtsc.leave</field>
+		<field name="view_mode">tree,form</field>
+	</record>
 	<record model="ir.actions.act_window" id="action_pettycash1">
 		<field name="name">零用金</field>
 		<field name="res_model">dtsc.pettymanager</field>
@@ -476,6 +508,31 @@
 		<field name="view_mode">tree,form</field>
 		<field name="context">{'search_default_group_by_color_id': 1,'search_default_group_by_hou_id': 1}</field>
 		<!-- <field name="context">{'group_by' : 'name'}</field> -->
+	</record>
+	
+	<record model="ir.actions.act_window" id="action_calendar_dtsc" >
+		<field name="name">日曆</field>
+		<field name="res_model">dtsc.calendar</field>
+		<field name="view_mode">calendar,tree,form</field>
+	</record>
+	
+	<record model="ir.actions.act_window" id="action_performance_dtsc" >
+		<field name="name">薪資總表</field>
+		<field name="res_model">dtsc.performance</field>
+		<field name="view_mode">tree,form</field>
+		<field name="view_id" ref="view_performance_tree"/>
+	</record>
+	
+	<record model="ir.actions.act_window" id="action_performance_salary_dtsc" >
+		<field name="name">基礎薪資設定表</field>
+		<field name="res_model">dtsc.workqrcode</field>
+		<field name="view_mode">tree,form</field>
+		<field name="view_id" ref="work_qrcode_salary_list"/>
+	</record>
+	<record model="ir.actions.act_window" id="action_jl_dtsc" >
+		<field name="name">勞健保基礎表</field>
+		<field name="res_model">dtsc.insurancelist</field>
+		<field name="view_mode">tree,form</field>
 	</record>
 	<!-- <record id="action_scan_qrcode_search" model="ir.actions.server"> -->
 		<!-- <field name="name">查詢</field> -->
@@ -496,6 +553,14 @@
 		<field name="url">/makesign</field>
 	</record>
 	
+	<record id="action_report_center" model="ir.actions.act_window">
+		<field name="name">報表查詢</field>
+		<field name="res_model">dtsc.reportcenter</field>
+		<field name="view_mode">form</field>
+		<field name="res_id" ref="default_report_center"/>  <!-- 指向固定那一筆 -->
+		<field name="target">current</field> <!-- ✅ 重點：不是 'new'，是實體頁面 -->
+	</record>
+	
     <!-- Top menu item -->
     <menuitem name="印刷訂單系統" id="dtsc.menu_root" web_icon="dtsc,static/description/icon.png"/>
     <!-- menu categories -->
@@ -504,14 +569,15 @@
 
 	<menuitem name="委外工單" id="dtsc.makeout" sequence="2" action="dtsc.action_window_make_out" parent="dtsc.menu_root"  groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_ck"/>
     <menuitem name="內部工單" id="dtsc.makein" sequence="3" action="dtsc.action_window_make_in" parent="dtsc.menu_root" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_ck"/>
+    <menuitem name="代工單" id="dtsc.makeom" sequence="4" action="dtsc.action_window_make_om" parent="dtsc.menu_root" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_ck"/>
     
-	<menuitem name="製作物" id="dtsc.scanqrcode" sequence="4" action="dtsc.action_scan_qrcode_search" parent="dtsc.menu_root" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_ck"/>
+	<menuitem name="製作物" id="dtsc.scanqrcode" sequence="40" action="dtsc.action_scan_qrcode_search" parent="dtsc.menu_root" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_ck"/>
     <menuitem id="cx" parent="dtsc.scanqrcode" name="查詢" sequence="1" action="dtsc.action_scan_qrcode_search" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_cg,dtsc.group_dtsc_ck"/>
     <menuitem id="lcjl" parent="dtsc.scanqrcode" name="流程記錄表" sequence="2" action="dtsc.action_work_sign_search1" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_cg,dtsc.group_dtsc_ck"/>
 	
 	
-	<menuitem name="施工工單" id="dtsc.installproduct" sequence="5" action="dtsc.action_window_install" parent="dtsc.menu_root"/>
-    <menuitem name="出貨單" id="dtsc.deliveryorder" sequence="6" action="dtsc.action_window_deliveryorder" parent="dtsc.menu_root"/>
+	<menuitem name="施工工單" id="dtsc.installproduct" sequence="50" action="dtsc.action_window_install" parent="dtsc.menu_root"/>
+    <menuitem name="出貨單" id="dtsc.deliveryorder" sequence="60" action="dtsc.action_window_deliveryorder" parent="dtsc.menu_root"/>
     <!-- <menuitem name="每月對賬單" id="dtsc.menu_statement" action="dtsc.action_window_statement" parent="dtsc.menu_root"/> -->
     <!-- <menuitem name="客戶" id="dtsc.menu_custom" action="dtsc.action_window_custom" parent="dtsc.menu_root"/> -->
 	<menuitem name="客戶" id="dtsc.menu_custom" action="dtsc.action_window_custom" parent="dtsc.menu_root" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj"/>
@@ -525,6 +591,7 @@
     <!-- <menuitem name="採購" id="dtsc.purchase" action="dtsc.purchase_order_1" parent="dtsc.menu_root" groups="dtsc.group_dtsc_kj,dtsc.group_dtsc_cg"/> -->
     <menuitem name="採購" id="dtsc.purchase" action="action_open_my_purchase_orders" parent="dtsc.menu_root" groups="dtsc.group_dtsc_kj,dtsc.group_dtsc_cg"/>
 	<menuitem name="應收帳單" id="dtsc.yszd" action="dtsc.yingshou" parent="dtsc.menu_root" groups="dtsc.group_dtsc_yw,dtsc.group_dtsc_kj"/>
+	<menuitem id="menu_report_center" name="報表查詢" parent="dtsc.menu_root" action="action_report_center" sequence="100" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj,dtsc.group_dtsc_sc,dtsc.group_dtsc_cg,dtsc.group_dtsc_ck"/>
 	
 	<menuitem id="yinshou_id" parent="dtsc.yszd" name="應收帳單" sequence="1" action="dtsc.yingshou"/>
 	<menuitem id="fapiao_id" parent="dtsc.yszd" name="發票" sequence="2" action="dtsc.fapiao"/>
@@ -575,10 +642,13 @@
 	<menuitem id="worker_name" parent="dtsc.menu_setting" name="產線人員" sequence="7" action="dtsc.worker_name_list" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj"/>
 	<menuitem id="re_work_name" parent="dtsc.menu_setting" name="重製人員表" sequence="8" action="dtsc.re_worker_name_list" groups="dtsc.group_dtsc_mg,dtsc.group_dtsc_yw,dtsc.group_dtsc_kj"/>
 	<menuitem id="fenleimuban" parent="dtsc.menu_setting" name="客戶分類模板" sequence="9" action="dtsc.custom_muban" groups="dtsc.group_dtsc_gly"/>
-	<menuitem id="qrcode_work" parent="dtsc.menu_setting" name="員工Qrcode" sequence="10" action="dtsc.qrcode_w" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="qrcode_work1" parent="dtsc.menu_setting" name="員工Qrcode" sequence="10" action="dtsc.qrcode_w"/>
 	<menuitem id="vatl" parent="dtsc.menu_setting" name="統編帳號密碼" sequence="11" action="dtsc.vat_login" groups="dtsc.group_dtsc_gly"/>
 	<menuitem id="gysjgbW" parent="dtsc.menu_setting" name="供應商價格表" sequence="12" action="dtsc.supp_price" groups="dtsc.group_dtsc_gly"/>
-	<menuitem id="linebot" parent="dtsc.menu_setting" name="Line設定" sequence="13" action="dtsc.linesetting" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="linebot1" parent="dtsc.menu_setting" name="Line設定" sequence="13" action="dtsc.linesetting"/>
+	<menuitem id="department_s" parent="dtsc.menu_setting" name="部門" sequence="14" action="dtsc.department_setting"/>
+	<menuitem id="factory_s" parent="dtsc.menu_setting" name="廠區" sequence="15" action="dtsc.factory_setting"/>
+	<menuitem id="xthl" parent="dtsc.menu_setting" name="系統互連設定" sequence="16" action="dtsc.interoperate_setting"/>
 	
 	
 	
@@ -592,8 +662,13 @@
 	<menuitem id="menu_order_preview" name="下單統計表" parent="menu_chart_dashboard_root1" action="action_order_preview1" sequence="6"/>
 	<menuitem id="menu_make_order_preview" name="工單狀況表" parent="menu_chart_dashboard_root1" action="action_make_machine_chart_dashboard" sequence="7"/>
 	<menuitem id="menu_work_time" name="員工績效(工時)" parent="menu_chart_dashboard_root1" action="action_work_time" sequence="8" groups="dtsc.group_dtsc_gly"/>
-	<menuitem id="menu_daka" name="考勤記錄" parent="menu_chart_dashboard_root1" action="action_kaoqing" sequence="9" groups="dtsc.group_dtsc_gly"/>
-	<menuitem id="menu_pettycash" name="零用金" parent="menu_chart_dashboard_root1" action="action_pettycash1" sequence="10" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="menu_daka1" name="考勤記錄" parent="menu_chart_dashboard_root1" action="action_kaoqing" sequence="9" />
+	<menuitem id="menu_leave1" name="請假表" parent="menu_chart_dashboard_root1" action="action_leave" sequence="10" />
+	<menuitem id="menu_pettycash" name="零用金" parent="menu_chart_dashboard_root1" action="action_pettycash1" sequence="11" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="menu_calendar" name="日曆" parent="menu_chart_dashboard_root1" action="action_calendar_dtsc" sequence="12" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="menu_performance" name="薪資總表" parent="menu_chart_dashboard_root1" action="action_performance_dtsc" sequence="13" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="menu_salary_setting" name="基礎薪資設定表" parent="menu_chart_dashboard_root1" action="action_performance_salary_dtsc" sequence="14" groups="dtsc.group_dtsc_gly"/>
+	<menuitem id="menu_jl_setting" name="勞健保基礎表" parent="menu_chart_dashboard_root1" action="action_jl_dtsc" sequence="15" groups="dtsc.group_dtsc_gly"/>
 	<!-- 
 	<menuitem id="submenu1" name="銷售產品" parent="dtsc.action_window_product" action="dtsc.action_window_product"/>
 

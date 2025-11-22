@@ -52,6 +52,13 @@ class PaymentTransaction(models.Model):
 
         # return self._newebpay_create_checkout_session(processing_values)
     
+    def _reconcile_after_done(self):
+        """ Override of payment to automatically confirm quotations and generate invoices. """
+        confirmed_orders = self._check_amount_and_confirm_order()
+        confirmed_orders._send_order_confirmation_mail()
+
+
+        super()._reconcile_after_done()
 
     def _update_sale_order_before_payment(self, reference):
         # 如果 reference 包含 '-'，则分割出订单号和序列号

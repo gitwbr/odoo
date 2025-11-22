@@ -299,6 +299,16 @@ patch(ActionMenus.prototype, 'dtsc.ActionMenus', {
                         action.description !== '合併' 
                     ); 					
                     console.log('Filtered formattedActions based on view:', formattedActions);
+                }		
+                else if (externalId === 'base.view_partner_tree') {
+                    formattedActions = formattedActions.filter(action => 
+                        action.description !== '刪除' && 
+                        action.description !== '封存' && 
+                        action.description !== '取消歸檔' && 
+                        action.description !== '授予網站登入存取權限' && 
+                        action.description !== '合併' 
+                    ); 					
+                    console.log('Filtered formattedActions based on view:', formattedActions);
                 }
             }
 
@@ -306,6 +316,7 @@ patch(ActionMenus.prototype, 'dtsc.ActionMenus', {
            /*  const callbackActions = (props.items.other || []).map((action) =>
                 Object.assign({ key: `action-${action.description}` }, action)
             ); */
+			// console.log("📋 原始 props.items.other:", props.items.other);
 			let callbackActions = (props.items.other || []).map((action) =>
                 Object.assign({ key: `action-${action.description}` }, action)
             );
@@ -318,7 +329,11 @@ patch(ActionMenus.prototype, 'dtsc.ActionMenus', {
 					action.key !== 'delete'
 				);
 			}
-			
+			if (externalId === 'base.view_partner_tree') {
+				callbackActions = callbackActions.filter(action =>
+					!['delete', 'archive', 'unarchive'].includes(action.key)
+				);
+			}
 			/* if (externalId === 'account.view_invoice_tree')
 			{
 				callbackActions = callbackActions.filter(action => 

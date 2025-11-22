@@ -27,4 +27,5 @@ def _assign_groups_to_admin(cr, registry):
         
 
 def post_init_hook(cr, registry):
+    print("post_init_bryant")
     _assign_groups_to_admin(cr, registry)   

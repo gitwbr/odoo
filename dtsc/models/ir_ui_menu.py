@@ -63,4 +63,23 @@ class IrUiMenu(models.Model):
             menu_ids_to_filter = [menu.id for menu in menus_to_filter if menu]
             if menu_ids_to_filter:
                 args += [('id', 'not in', menu_ids_to_filter)]
+                
+        if self.env.user.has_group('dtsc.group_dtsc_disable_ysyf'):
+            # 收集需要過濾的菜單
+            menus_to_filter = [
+                self.env.ref('dtsc.yszd', raise_if_not_found=False),
+                self.env.ref('dtsc.yfzd', raise_if_not_found=False),
+                self.env.ref('dtsc.menu_chart_dashboard', raise_if_not_found=False),
+                self.env.ref('dtsc.menu_sales_chart_dashboard', raise_if_not_found=False),
+                self.env.ref('dtsc.menu_machine_chart_dashboard', raise_if_not_found=False),
+                self.env.ref('dtsc.menu_product_chart_dashboard', raise_if_not_found=False),
+                self.env.ref('dtsc.menu_makeout_chart_dashboard', raise_if_not_found=False),
+                self.env.ref('dtsc.menu_order_preview', raise_if_not_found=False),
+                self.env.ref('dtsc.menu_make_order_preview', raise_if_not_found=False),
+            ]
+            # 過濾掉 None 的菜單（確保菜單存在）
+            menu_ids_to_filter = [menu.id for menu in menus_to_filter if menu]
+            if menu_ids_to_filter:
+                args += [('id', 'not in', menu_ids_to_filter)]
+                
         return super(IrUiMenu, self).search(args, offset, limit, order, count)

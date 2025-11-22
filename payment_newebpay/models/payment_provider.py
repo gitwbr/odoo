@@ -50,9 +50,12 @@ class PaymentProvider(models.Model):
             }
         else:
             return {
-                'MerchantID' : 'MS313551749' ,
-                'Key' : 'mlT9croKazJV0nzgIrDRiITiwQk2GRCa',
-                'IV' : 'CahwXXvofxq1J6RP' ,
+                # 'MerchantID' : 'MS313551749' ,
+                # 'Key' : 'mlT9croKazJV0nzgIrDRiITiwQk2GRCa',
+                # 'IV' : 'CahwXXvofxq1J6RP' ,
+                'MerchantID' : 'MS17361556' ,
+                'Key' : 'MCmYlwSGnG1bvT4x7cKPqJSWXuQFjgXd',
+                'IV' : 'C5b72pgzdVZofYGP' ,
             }
     # @api.depends('code')
     # def _compute_view_configuration_fields(self):

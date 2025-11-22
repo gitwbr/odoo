@@ -27,6 +27,7 @@ from odoo.http import request
 from odoo.modules import get_module_resource
 from odoo.osv import expression
 from odoo.tools import config
+from odoo.tools.misc import clean_context, OrderedSet, groupby
 class UoMCategory(models.Model):
     _inherit = "uom.category"
     
@@ -57,13 +58,15 @@ class UserListBefore(models.Model):
 
     _name = 'dtsc.reworklist'
     
-    name = fields.Char(string = "師傅")   
+    name = fields.Char(string = "師傅") 
+    is_disabled = fields.Boolean("禁用")  
 
 class UserListBefore(models.Model):
 
     _name = 'dtsc.userlistbefore'
     
     name = fields.Char(string = "師傅")
+    is_disabled = fields.Boolean("禁用")
     # worktype_ids = fields.Many2many('dtsc.usertype', string="工種")
   
 class UserList(models.Model):
@@ -72,6 +75,7 @@ class UserList(models.Model):
     
     name = fields.Char(string = "師傅")
     worktype_ids = fields.Many2many('dtsc.usertype', string="工種")
+    is_disabled = fields.Boolean("禁用")
   
     
 class ProductAttributeValue(models.Model):
@@ -120,9 +124,9 @@ class ProductTemplateAttributeValue(models.Model):
 
 class Billdate(models.TransientModel):
     _name = 'dtsc.billdate'
-    _description = '賬單日期'
+    _description = '帳單日期'
 
-    selected_date = fields.Date(string='賬單日期')
+    selected_date = fields.Date(string='帳單日期')
     
     def action_confirm(self):
         active_ids = self._context.get('active_ids')
@@ -187,8 +191,10 @@ class Billdate(models.TransientModel):
 
         for order in records:
             if order.invoice_status != 'to invoice':
-                raise UserError("%s 還不能轉應付賬單！請檢查！" %order.name)
-
+                if order.my_state != "3":
+                    raise UserError("%s 還不能轉應付賬單！請檢查！" %order.name)
+                else:
+                    order.write({'invoice_status': 'to invoice'})    
             order = order.with_company(order.company_id)
             invoice_vals = order._prepare_invoice()
             combined_invoice_vals['company_id'] = invoice_vals['company_id']
@@ -200,11 +206,12 @@ class Billdate(models.TransientModel):
                 # combined_invoice_vals['invoice_payment_term_id'] = partner_id.supp_pay_type.id
             
             for line in order.order_line:
+                line.qty_to_invoice = line.product_qty
                 if line.display_type != 'line_section' and not float_is_zero(line.qty_to_invoice, precision_digits=precision):
                     line_vals = line._prepare_account_move_line()
                      # 如果是退货单，则数量设置为负数
                     if order.is_return_goods:
-                        line_vals['quantity'] = -line_vals['quantity']
+                        line_vals['quantity'] = -abs(line.product_qty)
                         
                     combined_invoice_vals['invoice_line_ids'].append((0, 0, line_vals))
 
@@ -230,8 +237,8 @@ class Billdate(models.TransientModel):
             order.invoice_origin = move.id
 
         # 3) Convert to refund if total amount is negative
-        if move.currency_id.round(move.amount_total) < 0:
-            move.action_switch_invoice_into_refund_credit_note()
+        # if move.currency_id.round(move.amount_total) < 0:
+            # move.action_switch_invoice_into_refund_credit_note()
 
         return self.env["purchase.order"].action_view_invoice(move)
 
@@ -239,17 +246,31 @@ class Billdate(models.TransientModel):
 class StockMoveLine(models.Model):
     _inherit = "stock.move"
     now_stock = fields.Char(string='庫存',compute = '_compute_now_stock' ,readonly=True)
+    lot_id = fields.Many2one('stock.lot',string="產品序號",store=True)  
     
-    @api.depends('product_id','picking_id.location_id')
+    
+    @api.depends('product_id', 'product_qty', 'picking_type_id', 'reserved_availability', 'priority', 'state', 'product_uom_qty', 'location_id')
+    def _compute_forecast_information(self):
+        for move in self:
+            move.forecast_availability = move.product_qty  # 或者 False 或 99999 之類隨意你想顯示的
+            move.forecast_expected_date = False
+            
+        
+    @api.depends('product_id','picking_id.location_id','lot_id')
     def _compute_now_stock(self):
         for record in self:
             if record.picking_id.location_id:
-                if record.picking_id.location_id in [ 8 , 20 ]:#如果是調撥單 來源倉庫就是實際倉庫 ，否則 是收貨單 來源倉庫是虛擬倉庫 此時倉庫ID 用目的倉庫地址查詢庫存
+                if record.picking_id.location_id.id in [ 8 , 20 ]:#如果是調撥單 來源倉庫就是實際倉庫 ，否則 是收貨單 來源倉庫是虛擬倉庫 此時倉庫ID 用目的倉庫地址查詢庫存
                     location_id = record.picking_id.location_id.id
                 else:
                     location_id = record.picking_id.location_dest_id.id
+                
+                if record.product_id.tracking == 'serial':
+                    quant = self.env["stock.quant"].search([('product_id' , "=" , record.product_id.id),("location_id" ,"=" ,location_id),('lot_id',"=",record.lot_id.id)],limit=1) 
+                
+                else:                
+                    quant = self.env["stock.quant"].search([('product_id' , "=" , record.product_id.id),("location_id" ,"=" ,location_id)],limit=1) 
 
-                quant = self.env["stock.quant"].search([('product_id' , "=" , record.product_id.id),("location_id" ,"=" ,location_id)],limit=1) #這裡出現的負數我用company_id隱藏，未來要修正
                 if quant:
                     record.now_stock = quant.quantity
                 else:
@@ -268,18 +289,109 @@ class StockPicking(models.Model):
             order = self.env["purchase.order"].search([('name' ,"=" ,self.origin)])
             if order:
                 order.write({'my_state': '3'})
+                order.write({'invoice_status': 'to invoice'})
 
         return super_result
-    
+    #檢查move_line的時候如果move_line中沒有lot則去move反查一下
+    def _sanity_check(self, separate_pickings=True):
+        """ Sanity check for `button_validate()`
+            :param separate_pickings: Indicates if pickings should be checked independently for lot/serial numbers or not.
+        """
+        pickings_without_lots = self.browse()
+        products_without_lots = self.env['product.product']
+        pickings_without_moves = self.filtered(lambda p: not p.move_ids and not p.move_line_ids)
+        precision_digits = self.env['decimal.precision'].precision_get('Product Unit of Measure')
+
+        no_quantities_done_ids = set()
+        no_reserved_quantities_ids = set()
+        for picking in self:
+            if all(float_is_zero(move_line.qty_done, precision_digits=precision_digits) for move_line in picking.move_line_ids.filtered(lambda m: m.state not in ('done', 'cancel'))):
+                no_quantities_done_ids.add(picking.id)
+            if all(float_is_zero(move_line.reserved_qty, precision_rounding=move_line.product_uom_id.rounding) for move_line in picking.move_line_ids):
+                no_reserved_quantities_ids.add(picking.id)
+        pickings_without_quantities = self.filtered(lambda p: p.id in no_quantities_done_ids and p.id in no_reserved_quantities_ids)
+
+        pickings_using_lots = self.filtered(lambda p: p.picking_type_id.use_create_lots or p.picking_type_id.use_existing_lots)
+        if pickings_using_lots:
+            lines_to_check = pickings_using_lots._get_lot_move_lines_for_sanity_check(no_quantities_done_ids, separate_pickings)
+            for line in lines_to_check:
+                if not line.lot_name and not line.lot_id:
+                    if line.move_id.lot_id:
+                        line.write({'lot_id': line.move_id.lot_id.id, 'lot_name': line.move_id.lot_id.name})
+                    else:
+                        pickings_without_lots |= line.picking_id
+                        products_without_lots |= line.product_id
+                
+                
+                #print(line.lot_name)
+                #print(line.lot_id)
+                        
     def action_move_done(self):
         self.action_confirm()
         self.action_assign()
         for picking in self:
             for move in picking.move_ids:
-                move.quantity_done = move.product_uom_qty  # 设置为调拨数量或自定义的数量
-                for move_line in move.move_line_ids:
-                    move.quantity_done: move.product_uom_qty
+                _logger.warning(f"--------{move.product_uom_qty}-----------")
+                
+                _logger.warning(f"-------{move.move_line_ids}-----------")
+                move.move_line_ids.unlink()
 
+                if move.product_id.tracking == 'serial':
+                    if not move.lot_id:
+                        raise UserError(f"{move.product_id.display_name} 是序號產品，請先選擇序號。")
+                    
+                    quant = self.env['stock.quant'].search([
+                        ('product_id', '=', move.product_id.id),
+                        ('location_id', '=', picking.location_id.id),
+                        ('lot_id', '=', move.lot_id.id),
+                        ('quantity', '>', 0)
+                    ], limit=1)
+                    
+                    # if move.quantity_done != quant.quantity:
+                        # raise UserError(f"{move.product_id.display_name} 的序號 {move.lot_id.name} 調撥必須整料全部調撥，不可以分開")
+                    if not quant:
+                        raise UserError(f"{move.product_id.display_name} 的序號 {move.lot_id.name} 在來源倉庫中沒有可用庫存")
+                    
+                    # move.quantity_done = quant.quantity  # 设置为调拨数量或自定义的数量
+                    _logger.warning(f"========{quant.quantity}=========")
+                    _logger.warning(f"========{move.name}=========")
+                    _logger.warning(f"========{move.lot_id}=========")
+                    # _logger.warning(f"11111-------{move.move_line_ids}-----------")
+                    # 建立 move_line，使用選中的 lot_id
+                    self.env['stock.move.line'].create({
+                        'reference' : "調撥", 
+                        'move_id': move.id,
+                        "picking_id" : picking.id,
+                        'product_uom_id' : move.product_uom.id,   
+                        'location_id': picking.location_id.id,
+                        'location_dest_id': picking.location_dest_id.id,
+                        'product_id': move.product_id.id,
+                        'lot_id': move.lot_id.id,
+                        'qty_done': quant.quantity,  # 實際剩餘數量
+                        # 'product_uom_qty': quant.quantity, 
+                        'reserved_uom_qty': quant.quantity,  
+                    })
+                    # _logger.warning(f"2222-------{move.move_line_ids}-----------")
+                else:
+                    # 一般產品直接完成
+                    
+                    # move.quantity_done = move.product_uom_qty  # 设置为调拨数量或自定义的数量
+                    self.env['stock.move.line'].create({
+                        'reference' : "調撥", 
+                        'move_id': move.id,
+                        "picking_id" : picking.id,
+                        'product_uom_id' : move.product_uom.id, 
+                        'location_id': picking.location_id.id,
+                        'location_dest_id': picking.location_dest_id.id,
+                        'product_id': move.product_id.id,
+                        'qty_done': move.product_uom_qty,
+                        # 'product_uom_qty': move.product_uom_qty, 
+                        # 'reserved_qty': move.product_uom_qty,   
+                    })
+                
+            for move in picking.move_ids:
+                if not move.move_line_ids:                    
+                    raise UserError(f"{move.product_id.display_name} 缺少庫存行，請檢查序號或數量是否正確。")
             # 跳过验证，直接完成调拨
             picking.button_validate()
    
@@ -303,6 +415,33 @@ class PurchaseOrderLine(models.Model):
     
     taxes_id = fields.Many2many('account.tax', string='Taxes', compute="_compute_taxes_id", domain=['|', ('active', '=', False), ('active', '=', True)])
     
+    def _create_or_update_picking(self):
+        for line in self:
+            if line.product_id and line.product_id.type in ('product', 'consu'):
+                # Prevent decreasing below received quantity
+                if float_compare(line.product_qty, line.qty_received, line.product_uom.rounding) < 0:
+                    raise UserError(_('You cannot decrease the ordered quantity below the received quantity.\n'
+                                      'Create a return first.'))
+
+                if float_compare(line.product_qty, line.qty_invoiced, line.product_uom.rounding) == -1:
+                    # If the quantity is now below the invoiced quantity, create an activity on the vendor bill
+                    # inviting the user to create a refund.
+                    line.invoice_lines[0].move_id.activity_schedule(
+                        'mail.mail_activity_data_warning',
+                        note=_('The quantities on your purchase order indicate less than billed. You should ask for a refund.'))
+
+                # If the user increased quantity of existing line or created a new line
+                pickings = line.order_id.picking_ids.filtered(lambda x: x.state not in ('done', 'cancel') and x.location_dest_id.usage in ('internal', 'transit', 'customer'))
+                picking = pickings and pickings[0] or False
+                if not picking:
+                    res = line.order_id._prepare_picking()
+                    picking = self.env['stock.picking'].create(res)
+
+                moves = line._create_stock_moves(picking)
+                # moves._action_confirm()._action_assign()
+                moves._action_confirm()
+                # moves.write({'state': 'assigned'})
+                
     @api.model
     def create(self, vals):
         # 获取 purchase.order 的 is_return_goods 字段值
@@ -364,7 +503,6 @@ class PurchaseOrder(models.Model):
     
     @api.model
     def open_my_purchase_orders(self):
-        print("222222222222222")
         domain = self._get_restricted_domain()
         return {
             'type': 'ir.actions.act_window',
@@ -373,18 +511,18 @@ class PurchaseOrder(models.Model):
             'view_mode': 'tree,form,kanban',
             'domain': domain,
             'context': {
-                'group_by': 'partner_display_name'
+                'group_by': 'partner_display_name',
+                'search_default_no_5': 1,
             }
         }
     
     @api.model
     def _get_restricted_domain(self):
-        print("11111111111111111")
-        print(self.env.user.login)
         if self.env.user.login == 'han.yang@coinimaging.com.tw':#該賬號特殊處理可以看到請購單
-            return [('my_state', '=', '1')]
+            return [('my_state', 'in', ['1','2'])]
         else:
-            return [('my_state', '!=', '5')]
+            # return [('my_state', '!=', '5')]
+            return []
     
     def action_view_picking(self):
         if self.is_sign == "no":
@@ -403,7 +541,7 @@ class PurchaseOrder(models.Model):
 
     def button_confirm_dtsc(self):
         access_token = ''
-        lineObj = self.env["dtsc.linebot"].sudo().search([], limit=1)
+        lineObj = self.env["dtsc.linebot"].sudo().search([("linebot_type","=","for_worker")], limit=1)
         if lineObj and lineObj.line_access_token:
             access_token = lineObj.line_access_token
             user_line_ids = self.env["dtsc.workqrcode"].search([("is_zg", "=", True)])
@@ -530,7 +668,7 @@ class PurchaseOrder(models.Model):
     
     def push_line_sign(self):
         access_token = ''
-        lineObj = self.env["dtsc.linebot"].sudo().search([], limit=1)
+        lineObj = self.env["dtsc.linebot"].sudo().search([("linebot_type","=","for_worker")], limit=1)
         if lineObj and lineObj.line_access_token:
             access_token = lineObj.line_access_token
             user_line_ids = self.env["dtsc.workqrcode"].search([("is_qh", "=", True)])
@@ -828,59 +966,74 @@ class PurchaseOrder(models.Model):
             record.search_line = result    
    
     def go_to_zuofei(self):
-        
-        picking_id = self.env['stock.picking'].search([('origin', '=', self.name)])
-        if picking_id and picking_id.state == 'done':
-            reverse_picking_vals = {
-                'picking_type_id': picking_id.picking_type_id.id,
-                'origin': '退回 ' + self.name,
-            }
-            reverse_picking = self.env['stock.picking'].create(reverse_picking_vals)
-            
-            
-            for move in picking_id.move_ids:
-            
-                # print(move.quantity_done)
-                reverse_move_vals = {
-                    'name': move.name,
-                    'reference': "退回" + self.name,
-                    'origin' : self.name,
-                    'product_id': move.product_id.id,
-                    'product_uom_qty': move.product_uom_qty,
-                    'quantity_done': move.quantity_done,
-                    'product_uom': move.product_uom.id,
-                    'picking_id': reverse_picking.id,
-                    'location_id': move.location_dest_id.id,
-                    'location_dest_id': move.location_id.id,
+        if self.my_state == "4":
+            raise UserError("已轉應收單不能作廢！")
+        picking_ids = self.env['stock.picking'].search([('origin', '=', self.name)])
+        for picking_id in picking_ids:
+            if picking_id and picking_id.state == 'done':
+                reverse_picking_vals = {
+                    'picking_type_id': picking_id.picking_type_id.id,
+                    'origin': '退回 ' + self.name,
                 }
-                reverse_move = self.env['stock.move'].create(reverse_move_vals)
-                # print(line.id)  
-                # 处理序列号
-                for move_line in move.move_line_ids:
-                    if move_line.lot_id:
-                        print(move_line.qty_done)
-                        reverse_move_line_vals = {
-                            'reference' : "退回"+self.name, 
-                            'origin' : self.name,
-                            'move_id': reverse_move.id,
-                            'product_id': move_line.product_id.id,
-                            'product_uom_id': move_line.product_uom_id.id,
-                            'picking_id': reverse_picking.id,
-                            'reserved_uom_qty': move_line.qty_done,
-                            'qty_done': move_line.qty_done,
-                            'lot_id': move_line.lot_id.id,  # 指定序列号
-                            'location_id': move_line.location_dest_id.id,
-                            'location_dest_id': move_line.location_id.id,
-                        }
-                        moveline  = self.env['stock.move.line'].create(reverse_move_line_vals)
-                        move_line_objs = self.env['stock.move.line'].search([("product_id" , "=" ,move_line.product_id.id ),("lot_id" ,"=" , False ),('picking_id',"=", reverse_picking.id)])
-                        move_line_objs.unlink()
+                reverse_picking = self.env['stock.picking'].create(reverse_picking_vals)
                 
-       
-            # 确认并完成逆向拣货
-            reverse_picking.action_confirm()
-            reverse_picking.action_assign()
-            reverse_picking.button_validate()
+                
+                for move in picking_id.move_ids:
+                    if move.product_id.product_tmpl_id.tracking == "serial":
+                        reverse_move_vals = {
+                            'name': move.name,
+                            'reference': "退回" + self.name,
+                            'origin' : self.name,
+                            'product_id': move.product_id.id,
+                            'product_uom_qty': move.quantity_done,
+                            # 'quantity_done': move.quantity_done,
+                            'product_uom': move.product_uom.id,
+                            'picking_id': reverse_picking.id,
+                            'location_id': move.location_dest_id.id,
+                            'location_dest_id': move.location_id.id,
+                        }
+                        
+                    else:
+                        reverse_move_vals = {
+                            'name': move.name,
+                            'reference': "退回" + self.name,
+                            'origin' : self.name,
+                            'product_id': move.product_id.id,
+                            'product_uom_qty': move.quantity_done,
+                            'quantity_done': move.quantity_done,
+                            'product_uom': move.product_uom.id,
+                            'picking_id': reverse_picking.id,
+                            'location_id': move.location_dest_id.id,
+                            'location_dest_id': move.location_id.id,
+                        }
+                    reverse_move = self.env['stock.move'].create(reverse_move_vals)
+                    # print(line.id)  
+                    # 处理序列号
+                    for move_line in move.move_line_ids:
+                        if move_line.lot_id:
+                            #print(move_line.qty_done)
+                            reverse_move_line_vals = {
+                                'reference' : "退回"+self.name, 
+                                'origin' : self.name,
+                                'move_id': reverse_move.id,
+                                'product_id': move_line.product_id.id,
+                                'product_uom_id': move_line.product_uom_id.id,
+                                'picking_id': reverse_picking.id,
+                                'reserved_uom_qty': move_line.qty_done,
+                                'qty_done': move_line.qty_done,
+                                'lot_id': move_line.lot_id.id,  # 指定序列号
+                                'location_id': move_line.location_dest_id.id,
+                                'location_dest_id': move_line.location_id.id,
+                            }
+                            moveline  = self.env['stock.move.line'].create(reverse_move_line_vals)
+                            move_line_objs = self.env['stock.move.line'].search([("product_id" , "=" ,move_line.product_id.id ),("lot_id" ,"=" , False ),('picking_id',"=", reverse_picking.id)])
+                            move_line_objs.unlink()
+                    
+           
+                # 确认并完成逆向拣货
+                reverse_picking.action_confirm()
+                reverse_picking.action_assign()
+                reverse_picking.button_validate()
     
         self.write({'my_state': '5'})
         
@@ -892,7 +1045,7 @@ class PurchaseOrder(models.Model):
             active_ids.append(order.id)
     
 
-        view_id = self.env.ref('dtsc.view_dtsc_deliverydate_form').id
+        view_id = self.env.ref('dtsc.view_dtsc_billdate_form').id
         return {
             'name': '選擇賬單日期',
             'type': 'ir.actions.act_window',
@@ -906,7 +1059,7 @@ class PurchaseOrder(models.Model):
 
     @api.depends("partner_id")
     def _compute_partner_display_name(self):
-        print("_compute_partner_display_name")
+        #print("_compute_partner_display_name")
         for record in self:
             # print(record.partner_id.name)
             # print(record.partner_id.sell_user)
@@ -1049,6 +1202,10 @@ class DtscConfigSettings(models.TransientModel):
     open_page_with_scanqrcode = fields.Boolean("二維碼/掃碼槍",default=False)
     is_open_makein_qrcode = fields.Boolean("是否開啓工單掃碼流程")
     
+    day_work_hour = fields.Integer("一天請假折合小時")
+    
+    half_year_tx = fields.Integer("半年特休")
+    half_year_tx = fields.Integer("整年特休")
     # ftp_server = self.env['ir.config_parameter'].sudo().get_param('dtsc.ftp_server')
     # ftp_user = self.env['ir.config_parameter'].sudo().get_param('dtsc.ftp_user')
     # ftp_password = self.env['ir.config_parameter'].sudo().get_param('dtsc.ftp_password')

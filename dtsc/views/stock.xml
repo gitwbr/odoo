@@ -36,6 +36,9 @@
 			<button name="action_open_label_type" position="attributes">
 				<attribute name="invisible">1</attribute>
 			</button>
+			<xpath expr="//page[@name='detailed_operations']" position="attributes">
+				<attribute name="invisible">1</attribute>	
+			</xpath>
 		</field>
 	</record>
 	
@@ -66,6 +69,10 @@
 			</xpath>
 			<xpath expr="//field[@name='virtual_available']" position="attributes">
 				<attribute name="invisible">1</attribute>	
+			</xpath>
+			<xpath expr="//field[@name='qty_available']" position="before">
+				<field name="average_price"  groups="dtsc.group_dtsc_gly,dtsc.group_dtsc_cg"/>
+				<field name="total_value"  groups="dtsc.group_dtsc_gly,dtsc.group_dtsc_cg" sum="總計" />
 			</xpath>
 			
 		</field>
@@ -148,6 +155,7 @@
 				<field name="description"/>		 
 			</xpath>
 			<xpath expr="//field[@name='qty_done']" position="before">
+				<field name="location_ori" string="倉庫"/>				 
 				<field name="move_before_quantity"/>		 
 				<field name="move_after_quantity"/>		 
 			</xpath>

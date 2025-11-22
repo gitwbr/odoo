@@ -12,4 +12,10 @@
 			</xpath>
 		</field>
 	</record>
+	
+	<!-- <template id="report_saleorder_document_inherit_checkout_name" inherit_id="sale.report_saleorder_document"> -->
+        <!-- <xpath expr="//h2[@class='mt-4']/span[last()]" position="replace"> -->
+            <!-- <span t-esc="doc.checkout_id.name if doc.checkout_id else doc.name"/> -->
+        <!-- </xpath> -->
+    <!-- </template> -->
 </odoo>

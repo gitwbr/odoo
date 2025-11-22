@@ -1,0 +1,219 @@
+from odoo import models, fields, api
+import math
+import base64
+import requests
+import json
+import hashlib
+import time
+import json
+from odoo.exceptions import UserError
+from odoo.tools import config
+from datetime import datetime, timedelta, date, timezone, time
+from collections import defaultdict
+import qrcode
+from io import BytesIO
+import logging
+_logger = logging.getLogger(__name__)
+from workalendar.asia import Taiwan
+from calendar import monthrange
+
+CHINESE_VAR_MAP = {
+    '缺卡': 'qk_num',
+    '遲到': 'cd_num',
+    '早退': 'zt_num',
+    '請假': 'qj_num',
+    '考勤權重': 'attendance_weight',
+}
+
+class Performance(models.Model):
+    _name = "dtsc.performance"
+    
+    name = fields.Char("日期",store=True,compute="_compute_name")
+    
+    report_year = fields.Many2one("dtsc.year",string="年",store=True)
+    report_month = fields.Many2one("dtsc.month",string="月",store=True)
+    
+    
+    performanceline_ids = fields.One2many("dtsc.performanceline","performance_id")
+    
+    attendance_weight = fields.Float("考勤占比 (%)", default=30.0)
+    attendance_formula_display = fields.Text("考勤評分公式",default="(100 - 缺卡*1 - 遲到*0.5 - 早退*0.5 - max(請假 - 8, 0) * 0.3) * (考勤權重 / 100)")
+    attendance_formula_code = fields.Text("公式（程式用）",compute='_compute_attendance_formula_code',store=True, readonly=True)
+    
+    def convert_chinese_formula_to_code(self, formula_chinese):
+        formula_code = formula_chinese
+        for zh, en in CHINESE_VAR_MAP.items():
+            formula_code = formula_code.replace(zh, en)
+        return formula_code
+    
+    @api.onchange('attendance_formula_display')
+    def _onchange_formula_display(self):
+        self.attendance_formula_code = self.convert_chinese_formula_to_code(self.attendance_formula_display)
+    
+    @api.depends('attendance_formula_display')
+    def _compute_attendance_formula_code(self):
+        for rec in self:
+            rec.attendance_formula_code = rec.convert_chinese_formula_to_code(rec.attendance_formula_display)
+    
+    @api.depends("report_year","report_month")
+    def _compute_name(self):
+        for record in self:
+            if record.report_year and record.report_month:
+                record.name = record.report_year.name + "年" +str(record.report_month.name) + "月"
+            else:
+                record.name = ""
+                
+    def update_kaoji(self):
+        if not self.report_month or not self.report_year:
+            raise UserError('請先選擇需要創建考績的年和月。')    
+        self.performanceline_ids.unlink()
+        workers = self.env["dtsc.workqrcode"].search([('out_company_date', '=',False)])
+        performanceline = self.env["dtsc.performanceline"]
+        lines = []
+        should_work_days = self.get_should_work_days(int(self.report_year.name),int(self.report_month.name))
+        linebot = self.env["dtsc.linebot"]
+        attendance_model = self.env["dtsc.attendance"]
+        leave_model = self.env["dtsc.leave"]
+        
+        
+        for worker in workers:
+            attendances = attendance_model.search([
+                ("name", "=", worker.id),
+                ("report_year", "=", self.report_year.id),
+                ("report_month", "=", self.report_month.id),
+            ])
+            if attendances:
+                cd_num = sum(1 for att in attendances if att.in_status == 'cd')
+                zt_num = sum(1 for att in attendances if att.out_status == 'zt')
+                qk_num = sum([
+                        sum(1 for att in attendances if att.in_status == 'qk'),
+                        sum(1 for att in attendances if att.out_status == 'qk')
+                    ])
+            else:
+                cd_num = 0
+                zt_num = 0
+                qk_num = should_work_days * 2
+                
+            leaves = self.env['dtsc.leave'].search([
+                ('employee_id', '=', worker.id),
+                ('state', '=', 'approved'),
+                ('start_time', '>=', date(int(self.report_year.name), int(self.report_month.name), 1)),
+                ('start_time', '<=', date(int(self.report_year.name), int(self.report_month.name), monthrange(int(self.report_year.name), int(self.report_month.name))[1]))
+            ])
+            if leaves:
+                leave_hours = sum(leaves.mapped('leave_hours'))
+            else:
+                leave_hours = 0
+            try:
+                score = eval(formula_code, {
+                    '__builtins__': {},
+                    'qk_num': qk_num,
+                    'cd_num': cd_num,
+                    'zt_num': zt_num,
+                    'qj_num': leave_hours,
+                    'attendance_weight': self.attendance_weight,
+                    'max': max,
+                })
+                attendance_score = round(score, 2)
+                print("考勤評分公式成功")
+            except Exception as e:
+                _logger.warning(f"考勤評分公式錯誤: {e}")
+                attendance_score = 0.0
+                
+            lines.append((0, 0, {
+                'name': worker.id,
+                'should_work_days': should_work_days,
+                'should_work_hours': self.get_should_work_hours(worker,linebot,should_work_days),
+                'cd_num':cd_num,
+                'zt_num':zt_num,
+                'qk_num':qk_num,
+                'qj_num':leave_hours,
+                'attendance_score': attendance_score,
+            }))
+        self.performanceline_ids = lines  # 批量建立
+        
+    def get_should_work_hours(self,worker,linebot,days):
+        try:
+            if worker.in_time:
+                work_start = datetime.strptime(worker.in_time, "%H:%M").time()
+            else:
+                work_start = datetime.strptime(linebot.start_time , "%H:%M").time()
+                
+            
+            if worker.out_time:
+                work_end = datetime.strptime(worker.out_time , "%H:%M").time()
+            else:
+                work_end = datetime.strptime(linebot.end_time , "%H:%M").time()
+        except Exception:
+            work_start = time(hour=9)
+            work_end = time(hour=18)
+        
+        dummy_date = datetime(2000, 1, 1)  # 任意同一天即可
+        dt_start = datetime.combine(dummy_date, work_start)
+        dt_end = datetime.combine(dummy_date, work_end)
+
+        # 差值 (小時)
+        duration = dt_end - dt_start 
+        hours = duration.total_seconds() / 3600.0 - 1   # 換算成小時 減去一小時吃飯時間
+
+        return hours * days  # 計算該月總應上班工時
+        
+    def get_should_work_days(self, year, month):
+
+        calendar = Taiwan()
+        start_day = date(year, month, 1)
+        end_day = date(year, month, monthrange(year, month)[1])
+        
+            # 遍歷整個月，計算工作日
+        current_day = start_day
+        workday_count = 0
+
+        while current_day <= end_day:
+            if calendar.is_working_day(current_day):
+                workday_count += 1
+            current_day += timedelta(days=1)
+
+        return workday_count
+        
+        
+class PerformanceLine(models.Model):
+    _name = "dtsc.performanceline"
+    
+    name = fields.Many2one('dtsc.workqrcode', string='員工名字')
+    
+    performance_id = fields.Many2one("dtsc.performance") 
+    should_work_days = fields.Integer("應到天數")
+    should_work_hours = fields.Integer("應到小時")
+    quka_num = fields.Integer("缺卡")
+    cd_num = fields.Integer("遲到/次")
+    zt_num = fields.Integer("早退/次")
+    qk_num = fields.Integer("缺卡/次")
+    qj_num = fields.Integer("請假/小時")
+    attendance_formula_display = fields.Text(related='performance_id.attendance_formula_display', string="考勤公式", readonly=True)
+    attendance_score = fields.Float("考勤得分", compute="_compute_attendance_score", store=True)
+    # attendance_weight = fields.Float("考勤占比 (%)", default=30.0)
+    
+    def convert_chinese_formula_to_code(self, formula_chinese):
+        formula_code = formula_chinese
+        for zh, en in CHINESE_VAR_MAP.items():
+            formula_code = formula_code.replace(zh, en)
+        return formula_code
+    
+    @api.depends('qk_num', 'cd_num', 'zt_num', 'qj_num', 'performance_id.attendance_weight', 'performance_id.attendance_formula_display')
+    def _compute_attendance_score(self):
+        for record in self:
+            formula_code = record.convert_chinese_formula_to_code(record.performance_id.attendance_formula_display)
+            try:
+                result = eval(formula_code, {
+                    '__builtins__': {},  # 禁止使用內建函數
+                    'qk_num': record.qk_num,
+                    'cd_num': record.cd_num,
+                    'zt_num': record.zt_num,
+                    'qj_num': record.qj_num,
+                    'attendance_weight': record.performance_id.attendance_weight,
+                    'max': max,
+                })
+                record.attendance_score = round(result, 2)
+            except Exception as e:
+                _logger.warning(f"公式錯誤: {e}")
+                record.attendance_score = 0

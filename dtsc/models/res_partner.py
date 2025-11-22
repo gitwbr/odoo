@@ -1,8 +1,17 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 
+import logging
 from pprint import pprint
+_logger = logging.getLogger(__name__)
 
+import base64
+import xlsxwriter
+from datetime import datetime, timedelta, date
+from odoo.http import request
+from odoo.exceptions import UserError
+import os
+from io import BytesIO
 class BaseImport(models.TransientModel):
     _inherit = 'base_import.import'
 
@@ -60,6 +69,26 @@ class ResPartner(models.Model):
     custom_fax = fields.Char("傳真")
     comment = fields.Text(string='廠區備註')
     comment_customer = fields.Text(string='客戶備註') 
+    
+    @api.model
+    def _register_hook(self):
+        super()._register_hook()
+        _logger.info("✅ 模組更新時也會執行這段！")
+        action = self.env.ref('account_followup.action_account_reports_customer_statements_do_followup', raise_if_not_found=False)
+        _logger.info(f"={action}=={action.binding_model_id}====")
+        if action and action.binding_model_id:
+            # action.active = False
+            action.binding_model_id = False
+        action = self.env.ref('sms.res_partner_act_window_sms_composer_multi', raise_if_not_found=False)
+        if action and action.binding_model_id:
+            action.binding_model_id = False
+        action = self.env.ref('sms.res_partner_act_window_sms_composer_single', raise_if_not_found=False)
+        if action and action.binding_model_id:
+            action.binding_model_id = False
+        action = self.env.ref('mail.action_partner_mass_mail', raise_if_not_found=False)
+        if action and action.binding_model_id:
+            action.binding_model_id = False
+            
     user_id = fields.Many2one(
         'res.users',
         compute='_compute_user_id',
@@ -276,7 +305,7 @@ class ResPartner(models.Model):
                 if prefix:
                     # 生成custom_id
                     last_id = self.env['res.partner'].search([('custom_id', 'like', f'{prefix}%')], order='custom_id desc', limit=1).custom_id
-                    print(last_id)
+                    # print(last_id)
                     if last_id:
                         next_num = int(last_id[1:]) + 1
                     else:
@@ -335,3 +364,128 @@ class ResPartner(models.Model):
             partner.quotation_count = self.env['product.supplierinfo'].search_count([
                 ('partner_id', '=', partner.id)
             ])
+            
+class ReportExportCenter(models.Model):
+    _name = 'dtsc.reportcenter'
+    _description = '報表查詢'
+
+    name = fields.Char("名稱", default="報表查詢", readonly=True)
+    start_date = fields.Date('開始時間')
+    end_date = fields.Date('結束時間')
+    partner_id = fields.Many2one("res.partner",string="客戶")
+    report_type = fields.Selection([
+        ('partner_history', '歷史交易明細'),
+    ], string='報表類型',default="partner_history")
+    
+    def export_excel(self):
+        start_date = self.start_date
+        end_date = self.end_date
+        
+        dtsc_objs = self.env["dtsc.checkout"].search([
+            ("estimated_date", ">=", start_date),
+            ("estimated_date", "<=", end_date),
+            ("customer_id" ,"=",self.partner_id.id)
+        ])
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        sheet = workbook.add_worksheet('客戶歷史交易明細')
+        
+        border_format = workbook.add_format({'font_size': 9,'border': 1, 'align': 'center', 'bold': True,'valign': 'vcenter'})
+        content_format = workbook.add_format({'font_size': 9,'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        content_format_text_wrap = workbook.add_format({'font_size': 9,'border': 1, 'align': 'center', 'valign': 'vcenter','text_wrap': True})
+        sheet.set_column(0, 0, 12)
+        sheet.set_column(1, 1, 12)
+        sheet.set_column(2, 2, 6)
+        sheet.set_column(3, 3, 25)
+        sheet.set_column(4, 4, 25)
+        sheet.set_column(5, 5, 25)
+        sheet.set_column(6, 6, 18)
+        sheet.set_column(7, 7, 25)
+        sheet.set_column(8, 8, 8)
+        sheet.set_column(9, 9, 8)
+        sheet.set_column(10, 10, 8)
+        sheet.set_column(11, 11, 10)
+        sheet.set_column(12, 12, 10)
+        sheet.set_column(13, 13, 8)
+        sheet.set_column(14, 14, 10)
+        
+        sheet.write(0, 0, '出貨日', border_format)
+        sheet.write(0, 1, '單號', border_format)
+        sheet.write(0, 2, '項次', border_format)
+        sheet.write(0, 3, '案名', border_format)
+        sheet.write(0, 4, '檔名', border_format)
+        sheet.write(0, 5, '商品', border_format)
+        sheet.write(0, 6, '尺寸', border_format)
+        sheet.write(0, 7, '材質', border_format)
+        sheet.write(0, 8, '才數', border_format)
+        sheet.write(0, 9, '數量', border_format)
+        sheet.write(0, 10, '單價', border_format)
+        sheet.write(0, 11, '輸出額', border_format)
+        sheet.write(0, 12, '加工額', border_format)
+        sheet.write(0, 13, '小計', border_format)
+        sheet.write(0, 14, '稅別', border_format)
+        # sheet.write(0, 14, '輸出單', border_format)
+        # sheet.write(0, 15, '項', border_format)
+        custom_invoice_form_map = {
+            '21': '三聯式',
+            '22': '二聯式',
+            'other': '其他',
+        }
+        row = 0
+        show_price = self.env.user.has_group('dtsc.group_dtsc_gly')
+        for line in dtsc_objs:
+            for record in line.product_ids:
+                row += 1
+                sheet.write(row, 0, line.estimated_date.strftime('%Y-%m-%d'), content_format)
+                sheet.write(row, 1, line.name, content_format)
+                sheet.write(row, 2, record.sequence, content_format)
+                sheet.write(row, 3, line.project_name if line.project_name else '', content_format_text_wrap)
+                sheet.write(row, 4, record.project_product_name if record.project_product_name else '', content_format_text_wrap)
+                sheet.write(row, 5, record.product_id.name if record.product_id else '', content_format_text_wrap)
+                sheet.write(row, 6, f"{str(record.product_width)}x{str(record.product_height)}({record.single_units})", content_format)
+                make_name = ""
+
+                # 追加产品属性名称，假设每个属性都存储在order.product_atts中
+                for attr in record.product_atts:
+                    if make_name:  # 如果make_name非空，添加分隔符
+                        make_name += " / "
+                    make_name += attr.name
+                if record.multi_chose_ids:
+                    if make_name:  # 如果make_name非空，添加分隔符
+                        make_name += " / "
+                    make_name += record.multi_chose_ids    
+                sheet.write(row, 7, make_name, content_format_text_wrap)
+                sheet.write(row, 8, record.total_units, content_format)
+                sheet.write(row, 9, record.quantity, content_format)
+                if show_price:
+                    sheet.write(row, 10, record.units_price, content_format)
+                    sheet.write(row, 11, record.product_total_price, content_format)
+                    sheet.write(row, 12, record.total_make_price, content_format)
+                    sheet.write(row, 13, record.price, content_format)
+                else:                    
+                    sheet.write(row, 10, "", content_format)
+                    sheet.write(row, 11, "", content_format)
+                    sheet.write(row, 12, "", content_format)
+                    sheet.write(row, 13, "", content_format)
+                sheet.write(row, 14, custom_invoice_form_map.get(self.partner_id.custom_invoice_form, ''), content_format)
+                # sheet.write(row, 14, record.make_orderid if record.make_orderid else '' , content_format)
+                # sheet.write(row, 15, record.sequence if record.make_orderid else '', content_format)
+                
+            
+        
+        workbook.close()
+        output.seek(0) 
+
+        # 创建 Excel 文件并返回
+        attachment = self.env['ir.attachment'].create({
+            'name': self.partner_id.name +"_歷史交易明細.xlsx",
+            'datas': base64.b64encode(output.getvalue()),
+            'res_model': 'dtsc.checkout',
+            'type': 'binary'
+        })
+
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/{attachment.id}?download=true',
+            'target': 'new',
+        }

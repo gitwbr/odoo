@@ -81,7 +81,7 @@ class NewebPayController(http.Controller):
         
         
        
-       
+    #金晨修改    
     @http.route(_webhook_url, type='http', auth='public', methods=['GET', 'POST'], csrf=False)
     def newebpay_webhook(self, **payData):
         _logger.info("newebpay webhook data:\n%s", pprint.pformat(payData))
@@ -101,10 +101,25 @@ class NewebPayController(http.Controller):
                 
                 # 处理解密后的数据
                 if decrypted_data:
-                    _logger.info("newebpay webhook decrypted_data: %s", pprint.pformat(decrypted_data))
+                    _logger.info("****xx*******newebpay webhook decrypted_data: %s", pprint.pformat(decrypted_data))
                     status = decrypted_data.get("Status")
                     #merchant_order_no = decrypted_data.get("Result", {}).get("MerchantOrderNo").split('_')[0]
                     merchant_order_no = decrypted_data.get("Result", {}).get("MerchantOrderNo").replace('_', '-')
+                    
+                    
+                    # ref_parts = merchant_order_no.split('-')
+                    # check_out_name = ref_parts[0]
+                    # print(f"check_out_name****************{check_out_name}**********************")
+                    # 回調大圖訂單 然後轉換成saleorder后繼續原流程。使得訂單付款成功
+                    # sale_order_name = request.env["dtsc.checkout"].sudo().search([('name',"=",check_out_name)],limit=1).sale_order_id.name
+                    # print(f"sale_order_name****************{sale_order_name}**********************")
+                    ######
+                    # merchant_order_no = processing_values['reference']
+                    # if len(ref_parts) > 1 and ref_parts[1]:
+                        # aaa = f"{sale_order_name}-{ref_parts[1]}"
+                    # else:
+                        # aaa = sale_order_name
+                    # print(f"aaa****************{aaa}**********************")
                     
                     tx_order = request.env['payment.transaction'].sudo().search([('reference', '=', merchant_order_no)])
                     if not tx_order:

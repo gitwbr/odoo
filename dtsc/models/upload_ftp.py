@@ -18,25 +18,25 @@ class UploadModel(models.Model):
         #ftp_port = '8021'
         
         # 本地保存路径
-        local_save_path = self.env['ir.config_parameter'].sudo().get_param('dtsc.ftp_local_path')
-        local_folder_path = os.path.join(local_save_path, folder)
-        local_file_path = os.path.join(local_folder_path, filename)
+        # local_save_path = self.env['ir.config_parameter'].sudo().get_param('dtsc.ftp_local_path')
+        # local_folder_path = os.path.join(local_save_path, folder)
+        # local_file_path = os.path.join(local_folder_path, filename)
         # 本地保存路径
 
         try: 
         
             # 本地保存路径
-            if not os.path.exists(local_save_path):
-                os.makedirs(local_save_path, exist_ok=True)
-                os.chmod(local_save_path, 0o755)
+            # if not os.path.exists(local_save_path):
+                # os.makedirs(local_save_path, exist_ok=True)
+                # os.chmod(local_save_path, 0o777)
                 
-            if not os.path.exists(local_folder_path):
-                os.makedirs(local_folder_path, exist_ok=True)
-                os.chmod(local_folder_path, 0o755)
+            # if not os.path.exists(local_folder_path):
+                # os.makedirs(local_folder_path, exist_ok=True)
+                # os.chmod(local_folder_path, 0o777)
                 
-            with open(local_file_path, 'wb') as local_file:
-                local_file.write(file_content)
-            print(f'File saved locally at {local_file_path}')
+            # with open(local_file_path, 'wb') as local_file:
+                # local_file.write(file_content)
+            # print(f'File saved locally at {local_file_path}')
             # 本地保存路径
         
             with ftplib.FTP(ftp_server, ftp_username, ftp_password) as ftp:

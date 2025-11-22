@@ -62,7 +62,7 @@ class StockQuant(models.Model):
     
     lastmodifydate = fields.Datetime("最後修改時間",compute="_compute_lastmodifydate")
     zksl_cai = fields.Float("在庫數量(才)",compute="_compute_zksl_cai")
-    average_price = fields.Float("平均采購價格" , compute="_compute_average_price")
+    average_price = fields.Float("平均採購價格" , compute="_compute_average_price")
     total_value = fields.Float("成本" , compute="_compute_average_price")
     categ_id = fields.Many2one("product.category",string="產品分類",related="product_id.product_tmpl_id.categ_id",store=True)
     stock_date = fields.Date("指定盤點日期")
@@ -258,25 +258,29 @@ class StockQuant(models.Model):
                 ], order='date_order desc')
 
                 qty_consumed = 0
-                for line in purchase_lines:
-                    if total_qty_needed <= 0:
-                        break
-                    purchase_qty = line.product_qty
-                    purchase_price = 0
-                    if line.price_unit != 0:
-                        purchase_price = line.price_unit
-                    else:
-                        purchase_price = line.product_id.standard_price
-                    if purchase_qty >= total_qty_needed:
-                        total_value += total_qty_needed * purchase_price
-                        qty_consumed += total_qty_needed
-                        total_qty_needed = 0
-                    else:
-                        total_value += purchase_qty * purchase_price
-                        qty_consumed += purchase_qty
-                        total_qty_needed -= purchase_qty
+                if not purchase_lines:
+                    average_price = record.product_id.standard_price
+                    total_value = average_price * total_qty_needed
+                else:
+                    for line in purchase_lines:
+                        if total_qty_needed <= 0:
+                            break
+                        purchase_qty = line.product_qty
+                        purchase_price = 0
+                        if line.price_unit != 0:
+                            purchase_price = line.price_unit
+                        else:
+                            purchase_price = line.product_id.standard_price
+                        if purchase_qty >= total_qty_needed:
+                            total_value += total_qty_needed * purchase_price
+                            qty_consumed += total_qty_needed
+                            total_qty_needed = 0
+                        else:
+                            total_value += purchase_qty * purchase_price
+                            qty_consumed += purchase_qty
+                            total_qty_needed -= purchase_qty
 
-                average_price = total_value / qty_consumed if qty_consumed > 0 else 0.0
+                    average_price = total_value / qty_consumed if qty_consumed > 0 else 0.0
             
                 record.average_price = average_price
                 record.total_value = total_value
@@ -697,6 +701,51 @@ class Productproduct(models.Model):
     _inherit = "product.product"
     
     sec_uom_id = fields.Many2one("uom.uom")
+    average_price = fields.Float("平均採購價格" , compute="_compute_average_price")
+    total_value = fields.Float("總計金額" , compute="_compute_average_price",store=True)
+    
+    @api.depends('qty_available','standard_price')
+    def _compute_average_price(self):
+        for record in self:
+            total_value = 0.0
+            average_price = 0.0
+            total_qty_needed = record.qty_available
+            purchase_lines = self.env['purchase.order.line'].search([
+                ('product_id', '=', record.id),
+                ('order_id.state', 'in', ['purchase', 'done'])
+            ], order='date_order desc')
+
+            qty_consumed = 0
+            if not purchase_lines:
+                average_price = record.standard_price
+            else:
+                for line in purchase_lines:
+                    if total_qty_needed <= 0:
+                        break
+                    purchase_qty = line.product_qty
+                    purchase_price = 0
+                    if line.price_unit != 0:
+                        purchase_price = line.price_unit
+                    else:
+                        purchase_price = line.product_id.standard_price
+                    if purchase_qty >= total_qty_needed:
+                        total_value += total_qty_needed * purchase_price
+                        qty_consumed += total_qty_needed
+                        total_qty_needed = 0
+                    else:
+                        total_value += purchase_qty * purchase_price
+                        qty_consumed += purchase_qty
+                        total_qty_needed -= purchase_qty
+
+                average_price = total_value / qty_consumed if qty_consumed > 0 else 0.0
+        
+            record.average_price = average_price
+            record.total_value = average_price * record.qty_available
+    
+    
+    
+    
+    
     
 class StockMove(models.Model):
     _inherit = "stock.move"
@@ -799,6 +848,10 @@ class Mpr(models.Model):
         
         
     def confirm_btn(self):
+        if not self.mprline_ids:
+            self.write({"state": "succ"})
+            return
+    
         for record in self.mprline_ids:
             if record.product_product_id.product_tmpl_id.tracking == "serial": #如果這個產品設定的是有唯一序列號的 則需要選擇序號
                 if not record.product_lot:
@@ -1055,7 +1108,7 @@ class StockMoveLine(models.Model):
     description = fields.Text(string="採購描述" , related="move_id.purchase_line_id.name")
     move_before_quantity = fields.Float("移動前")
     move_after_quantity = fields.Float("移動後",compute="_compute_move_after_quantity",store=True)
-    
+    location_ori = fields.Many2one("stock.location",compute="_compute_move_after_quantity",store=True)
     report_year = fields.Many2one("dtsc.year",string="年",compute="_compute_year_month",store=True)
     report_month = fields.Many2one("dtsc.month",string="月",compute="_compute_year_month",store=True) 
     
@@ -1076,24 +1129,28 @@ class StockMoveLine(models.Model):
         worksheet.set_column('H:H', 15) 
         # 写入表头
         worksheet.write(0, 0, '日期', bold_format)
-        worksheet.write(0, 1, '產品', bold_format)
-        worksheet.write(0, 2, '參照', bold_format)
-        worksheet.write(0, 3, '移動前', bold_format)
-        worksheet.write(0, 4, '移動後', bold_format)
-        worksheet.write(0, 5, '完成', bold_format)
-        worksheet.write(0, 6, '量度單位', bold_format)
+        worksheet.write(0, 1, '參照', bold_format)
+        worksheet.write(0, 2, '產品', bold_format)
+        worksheet.write(0, 3, '序號', bold_format)
+        worksheet.write(0, 4, '倉庫', bold_format)
+        worksheet.write(0, 5, '移動前', bold_format)
+        worksheet.write(0, 6, '移動後', bold_format)
+        worksheet.write(0, 7, '完成', bold_format)
+        worksheet.write(0, 8, '量度單位', bold_format)
         row = 1
         for record in records:
             worksheet.write(row, 0, record.date.strftime('%Y-%m-%d %H:%M:%S'))
-            worksheet.write(row, 1, record.product_id.name if record.product_id else "")
-            worksheet.write(row, 2, record.reference if record.reference else "")
-            worksheet.write(row, 3, str(round(record.move_before_quantity,2)) if record.move_before_quantity else "0")
-            worksheet.write(row, 4, str(round(record.move_after_quantity,2)) if record.move_after_quantity else "0")
+            worksheet.write(row, 1, record.reference if record.reference else "")
+            worksheet.write(row, 2, record.product_id.name if record.product_id else "")
+            worksheet.write(row, 3, record.lot_id.name if record.lot_id else "")
+            worksheet.write(row, 4, record.location_ori.name if record.location_ori else "")
+            worksheet.write(row, 5, str(round(record.move_before_quantity,2)) if record.move_before_quantity else "0")
+            worksheet.write(row, 6, str(round(record.move_after_quantity,2)) if record.move_after_quantity else "0")
             if record.move_before_quantity > record.move_after_quantity: 
-                worksheet.write(row, 5, str(-round(record.qty_done,2)) if record.qty_done else "")
+                worksheet.write(row, 7, str(-round(record.qty_done,2)) if record.qty_done else "")
             else:
-                worksheet.write(row, 5, str(round(record.qty_done,2)) if record.qty_done else "")
-            worksheet.write(row, 6, str(record.product_uom_id.name) if record.product_uom_id else "")           
+                worksheet.write(row, 7, str(round(record.qty_done,2)) if record.qty_done else "")
+            worksheet.write(row, 8, str(record.product_uom_id.name) if record.product_uom_id else "")           
             row = row + 1
         
         workbook.close()
@@ -1132,17 +1189,34 @@ class StockMoveLine(models.Model):
             if record.state == "done":
                 #decoration-danger="(location_usage in ('internal','transit')) and (location_dest_usage not in ('internal','transit'))"   扣料
                 #decoration-success="(location_usage not in ('internal','transit')) and (location_dest_usage in ('internal','transit'))"  入库
+                obj = False 
                 if record.location_usage in ["internal","transit"] and record.location_dest_usage not in ['internal','transit']:   
                     if record.lot_id:
                         obj = self.env["stock.quant"].search([('product_id','=',record.product_id.id),('location_id','=',record.location_id.id),("lot_id","=",record.lot_id.id)],limit=1)
                     else:
                         obj = self.env["stock.quant"].search([('product_id','=',record.product_id.id),('location_id','=',record.location_id.id)],limit=1)
+                    record.location_ori = record.location_id
                 elif record.location_usage not in ["internal","transit"] and record.location_dest_usage in ['internal','transit']:
                     if record.lot_id:
                         obj = self.env["stock.quant"].search([('product_id','=',record.product_id.id),('location_id','=',record.location_dest_id.id),("lot_id","=",record.lot_id.id)],limit=1)
                     else:
                         obj = self.env["stock.quant"].search([('product_id','=',record.product_id.id),('location_id','=',record.location_dest_id.id)],limit=1)
-                    
+                    record.location_ori = record.location_dest_id
+                elif record.location_usage in ["internal", "transit"] and record.location_dest_usage in ["internal", "transit"]:
+                    # 調撥情境：看來源倉庫剩餘量 
+                    record.location_ori = record.location_id
+                    if record.lot_id:
+                        obj = self.env["stock.quant"].search([
+                            ('product_id', '=', record.product_id.id),
+                            ('location_id', '=', record.location_id.id),
+                            ("lot_id", "=", record.lot_id.id)
+                        ], limit=1)
+                    else:
+                        obj = self.env["stock.quant"].search([
+                            ('product_id', '=', record.product_id.id),
+                            ('location_id', '=', record.location_id.id)
+                        ], limit=1)  
+                        
                 if obj:
                     record.move_after_quantity = obj.quantity
                 else:
@@ -1157,6 +1231,8 @@ class StockMoveLine(models.Model):
             location_id = vals['location_id']
         elif location.usage not in ["internal","transit"] and location_dest.usage in ['internal','transit']:
             location_id = vals['location_dest_id']
+        else:
+            location_id = vals['location_id']
         
         lot_id = vals.get('lot_id', None)
         if lot_id:

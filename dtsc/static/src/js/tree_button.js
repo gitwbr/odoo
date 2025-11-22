@@ -34,15 +34,35 @@ export class InstallProductListControllerS extends ListController {
    }
 
 }
+export class PartnerListControllerA extends ListController {
+    setup() {
+        super.setup();
+        this.orm = useService("orm");
+        this.notification = useService("notification");
+    }
+	
+	async OnTestClick() {
+		try {
+            await this.orm.call("dtsc.attendance", "action_run_missing_attendance", [], {});
+            this.notification.add("已執行：缺卡檢測完成", { type: "success" });
+			await this.actionService.doAction({ type: "ir.actions.client", tag: "reload" })
+        } catch (e) {
+            this.notification.add("執行失敗：" + (e?.message || ""), { type: "danger" });
+            // console.error(e);
+        }
+   }
 
+}
 registry.category('views').add('InstallProductClass', {
     ...listView,
     buttonTemplate: 'InstallProduct.ListButtons',
     Controller: InstallProductListControllerS,
 });
 
-// registry.category('views').add('CheckOutClass', {
-    // ...listView,
-    // buttonTemplate: 'Checkout.ListButtons',
-    // Controller: InstallProductListControllerS,
-// });
+
+registry.category('views').add('dtsc_attendance_tree', {
+    ...listView,
+    buttonTemplate: 'Attendance.ListButtons',
+    Controller: PartnerListControllerA,
+    // Renderer: PartnerListRenderer,
+});

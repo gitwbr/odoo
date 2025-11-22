@@ -86,7 +86,13 @@ class CrmLead(models.Model):
         # action['view_id'] = self.env.ref('dtsc.view_checkout_tree_crm').id
         return action
 
-
+class checkoutComment(models.Model):
+    _name = "dtsc.checkoutcomment"
+    
+    sequence = fields.Integer("序號")
+    name = fields.Text("備註内容")
+    checkout_id = fields.Many2one("dtsc.checkout")
+    
 class CheckoutInherit(models.Model):
     _inherit = 'dtsc.checkout'
 
@@ -99,13 +105,15 @@ class CheckoutInherit(models.Model):
         ('waiting_confirmation', '待確認')
     ], ondelete={'waiting_confirmation': 'set default'})
     
+    checkoutcomment_ids= fields.One2many("dtsc.checkoutcomment","checkout_id",string="備註列表")
     is_show_price = fields.Boolean(string="價格顯示",default=True)
-    
+    related_checkout_id = fields.Many2one('dtsc.checkout', string="關聯大圖訂單")
     is_new_partner = fields.Boolean("新客戶")
     crm_date = fields.Date("報價日期")    
+    crm_effective_date = fields.Date("有效期限")    
     new_partner = fields.Char("新客戶名")
     
-    new_customer_class_id = fields.Many2one('dtsc.customclass',string="新客戶分類")
+    new_customer_class_id = fields.Many2one('dtsc.customclass',string="新客戶分類",domain=lambda self: [('sell_user', 'in', [self.env.uid])])
     new_init = fields.Char("新簡稱")
     new_street = fields.Char("新客戶地址")
     new_vat = fields.Char("新客戶統編")
@@ -127,6 +135,78 @@ class CheckoutInherit(models.Model):
         ('22', '二聯式'),
         ('other', '其他'),
     ], string='稅別') 
+    
+    
+    def go_datu(self):
+        if self.related_checkout_id:
+            return {
+                'name': '大圖訂單',
+                'type': 'ir.actions.act_window',
+                'view_mode': 'form',
+                'res_model': 'dtsc.checkout',
+                'res_id': self.related_checkout_id.id,
+                # 'target': 'new',
+            } 
+    def action_copy_checkout(self):
+        for record in self:
+            # 1. 複製主體
+            new_checkout = record.with_context(from_crm=True).copy(default={})
+            new_checkout.write({"related_checkout_id":False})
+            # 2. 複製子項
+            for line in record.product_ids:
+                line_data = line.copy_data()[0]
+                line_data.pop('id', None)
+                line_data['checkout_product_id'] = new_checkout.id
+                product_atts_ids = line.product_atts.ids
+                line_data.pop('product_atts', None)
+
+                # 先建立基本資料
+                new_line = self.env['dtsc.checkoutline'].create(line_data)
+                
+
+                # 若有 One2many 關聯資料
+                if product_atts_ids:
+                    new_line.write({'product_atts': [(6, 0, product_atts_ids)]})
+
+                # 複製相關報價細項
+                related_records = self.env['dtsc.checkoutlineaftermakepricelist'].search([
+                    ('checkoutline_id', '=', line.id)
+                ])
+                for sub in related_records:
+                    self.env['dtsc.checkoutlineaftermakepricelist'].create({
+                        'checkoutline_id': new_line.id,
+                        'aftermakepricelist_id': sub.aftermakepricelist_id.id,
+                        'customer_class_id': sub.customer_class_id.id,
+                        'qty': sub.qty,
+                    })
+                new_line.write({'units_price':line.units_price})
+                new_line.write({'total_units':line.total_units})
+                new_line.write({'multi_chose_ids':line.multi_chose_ids})
+                new_line.write({'peijian_price':line.peijian_price})
+                new_line.write({'total_make_price':line.total_make_price})
+                new_line.write({'single_units':line.single_units})
+                new_line.write({'product_total_price':line.product_total_price})
+                new_line.write({'price':line.price})
+                new_line.write({'machine_cai_cai':line.machine_cai_cai})
+            
+            new_checkout.checkoutcomment_ids.unlink()
+            
+            for a in record.checkoutcomment_ids:
+                self.env['dtsc.checkoutcomment'].create({
+                    'checkout_id': new_checkout.id,
+                    'name': a.name,
+                    'sequence': a.sequence,
+                })     
+                
+            return {
+                'type': 'ir.actions.act_window',
+                'name': '複製報價單',
+                'res_model': 'dtsc.checkout',
+                'view_mode': 'form',
+                'res_id': new_checkout.id,
+                'target': 'current',
+            }
+    
     @api.model
     def create(self, vals):
         """
@@ -174,6 +254,20 @@ class CheckoutInherit(models.Model):
         result = super(CheckoutInherit, self).create(vals)
 
         _logger.info("Created Checkout - Result: %s", result)
+        
+        comments = self.env['dtsc.crmusercomment'].search([
+            ('create_id', '=', self.env.user.id),
+            ('is_enable', '=', True)
+        ], order='sequence')
+        index = 0
+        for comment in comments:
+            index = index + 1
+            self.env['dtsc.checkoutcomment'].create({
+                'sequence': index,
+                'name': comment.comment,
+                'checkout_id': result.id
+            })
+            
         return result
     
     def action_confirm_to_draft(self):
@@ -183,43 +277,84 @@ class CheckoutInherit(models.Model):
         - 将客户的分类更新到订单上
         - 将状态改为草稿
         """
+        
         current_date = datetime.now()
         for record in self:
-            if record.is_new_partner:
-                if not record.new_partner:
+            # record.action_copy_checkout()
+            new_checkout = record.with_context(from_crm=True).copy(default={})
+
+            # 2. 逐筆複製 checkoutline
+            for line in record.product_ids:
+                line_data = line.copy_data()[0]
+                line_data.pop('id', None)
+                line_data['checkout_product_id'] = new_checkout.id
+                line_data['sequence'] = line.sequence
+                product_atts_ids = line.product_atts.ids  # 如果是 One2many 就改成 line.product_atts.copy_data()
+                line_data.pop('product_atts', None)
+                # 建立新的 checkoutline
+                new_line = self.env['dtsc.checkoutline'].create(line_data)
+
+                
+                if product_atts_ids:
+                    new_line.write({'product_atts': [(6, 0, product_atts_ids)]}) 
+                related_records = self.env['dtsc.checkoutlineaftermakepricelist'].search([
+                    ('checkoutline_id', '=', line.id)
+                ])
+                for sub in related_records:
+                    self.env['dtsc.checkoutlineaftermakepricelist'].create({
+                        'checkoutline_id': new_line.id,
+                        'aftermakepricelist_id': sub.aftermakepricelist_id.id,
+                        'customer_class_id': sub.customer_class_id.id,
+                        'qty': sub.qty,
+                    })    
+            
+                new_line.write({'units_price':line.units_price})
+                new_line.write({'total_units':line.total_units})
+                new_line.write({'multi_chose_ids':line.multi_chose_ids})
+                new_line.write({'peijian_price':line.peijian_price})
+                new_line.write({'total_make_price':line.total_make_price})
+                new_line.write({'single_units':line.single_units})
+                new_line.write({'product_total_price':line.product_total_price})
+                new_line.write({'price':line.price})
+                new_line.write({'machine_cai_cai':line.machine_cai_cai})
+            
+            if new_checkout.is_new_partner:
+                if not new_checkout.new_partner:
                     raise ValueError("請輸入新用戶名") 
                 
                 partner_vals = {
-                    'name': record.new_partner,
-                    'street': record.new_street,
-                    'vat': record.new_vat,
-                    'phone': record.new_phone,
-                    'customclass_id':record.new_customer_class_id,
-                    'mobile': record.new_mobile,
-                    'email': record.new_email,
-                    'custom_contact_person': record.new_custom_contact_person,
-                    'custom_fax':record.new_custom_fax,
-                    'property_payment_term_id' : record.new_property_payment_term_id,
-                    'custom_pay_mode':record.new_custom_pay_mode,
-                    'custom_invoice_form':record.new_custom_invoice_form,
+                    'name': new_checkout.new_partner,
+                    'street': new_checkout.new_street,
+                    'vat': new_checkout.new_vat,
+                    'phone': new_checkout.new_phone,
+                    'customclass_id':new_checkout.new_customer_class_id.id,
+                    'mobile': new_checkout.new_mobile,
+                    'email': new_checkout.new_email,
+                    'custom_contact_person': new_checkout.new_custom_contact_person,
+                    'custom_fax':new_checkout.new_custom_fax,
+                    'property_payment_term_id' : new_checkout.new_property_payment_term_id,
+                    'custom_pay_mode':new_checkout.new_custom_pay_mode,
+                    'custom_invoice_form':new_checkout.new_custom_invoice_form,
                     'is_customer' : True,
-                    'sell_user' : self.env.user.id,
-                    'custom_init_name' : record.new_init,
+                    'sell_user' : new_checkout.user_id.id,
+                    'custom_init_name' : new_checkout.new_init,
                 }   
                 
                 new_partner = self.env['res.partner'].create(partner_vals)
                 record.customer_id = new_partner.id
                 record.is_new_partner = False
+                new_checkout.customer_id = new_partner.id
+                new_checkout.is_new_partner = False
                 
             if not record.customer_id:
                 raise ValueError("請選擇客戶") 
             
             # 更新订单上的客户分类
-            if record.customer_id.customclass_id:
-                record.customer_class_id = record.customer_id.customclass_id.id
+            if new_checkout.customer_id.customclass_id:
+                new_checkout.customer_class_id = new_checkout.customer_id.customclass_id.id
             
             # 修改状态为草稿
-            record.checkout_order_state = 'draft'
+            new_checkout.checkout_order_state = 'draft'
             
             invoice_due_date = self.env['ir.config_parameter'].sudo().get_param('dtsc.invoice_due_date')
         
@@ -249,16 +384,37 @@ class CheckoutInherit(models.Model):
                 # 如果没有找到记录，就从A23100001开始
                 new_name = "A"+next_year_str+next_month_str+"00001" 
                 
-            record.name = new_name
+            new_checkout.name = new_name
             # record.create_date = datetime.now()
-            query = """
-            UPDATE dtsc_checkout
-            SET create_date = %s
-            WHERE id = %s;
-            """
-            self.env.cr.execute(query, (datetime.now(), record.id))
+            # query = """
+            # UPDATE dtsc_checkout
+            # SET create_date = %s
+            # WHERE id = %s;
+            # """
+            # self.env.cr.execute(query, (datetime.now(), new_checkout.id))
             # self.env.cr.commit()
+            record.related_checkout_id = new_checkout.id
+            new_checkout.related_checkout_id = record.id
+            new_checkout.crm_lead_id = False
             
+            new_checkout.checkoutcomment_ids.unlink()
+            
+            for a in record.checkoutcomment_ids:
+                self.env['dtsc.checkoutcomment'].create({
+                        'checkout_id': new_checkout.id,
+                        'name': a.name,
+                        'sequence': a.sequence,
+                    })   
+
+            
+            return {
+                'type': 'ir.actions.act_window',
+                'name': '大圖訂單',
+                'res_model': 'dtsc.checkout',
+                'view_mode': 'form',
+                'res_id': new_checkout.id,
+                'target': 'current',
+            }
             
     @api.model
     def action_printexcel_crm(self):
@@ -409,7 +565,7 @@ class CheckoutInherit(models.Model):
             sheet.merge_range(5, 6, 5, 8, records[0].customer_id.mobile if records[0].customer_id.mobile else "", merge_format)
         
         sheet.write(5, 9, "有效期限", merge_format)
-        sheet.merge_range(5, 10, 5, 13, "一個月", merge_format)
+        sheet.merge_range(5, 10, 5, 13, records[0].crm_effective_date.strftime('%Y-%m-%d') if records[0].crm_effective_date else "", merge_format)
         
         
         
@@ -427,6 +583,7 @@ class CheckoutInherit(models.Model):
         
         # 订单明细数据
         row += 1
+        all_price = 0
         for doc in records:
             for order in doc.product_ids:
                 sheet.write(row, 0, order.sequence, bold_format)
@@ -454,30 +611,38 @@ class CheckoutInherit(models.Model):
                 sheet.write(row, 9, order.units_price, bold_format)
                 other_value = order.total_make_price + order.peijian_price
                 sheet.write(row, 10, other_value, bold_format)  # 其他字段
-                sheet.merge_range(row, 11,row, 13, order.price, bold_format)
+                
+                record_price = order.price + order.install_price
+                all_price = all_price + record_price
+                sheet.merge_range(row, 11,row, 13, record_price, bold_format)
                 row += 1
 
         # 小計、稅金、合計
         sheet.merge_range(row, 0,row, 9, "", border_format)
         sheet.write(row, 10, "小計", bold_format)
-        sheet.merge_range(row, 11,row, 13, records[0].record_price_and_construction_charge if records else "", border_format)
+        # sheet.merge_range(row, 11,row, 13, records[0].record_price_and_construction_charge if records else "", border_format)
+        sheet.merge_range(row, 11,row, 13, all_price if all_price else 0, border_format)
         row += 1
         sheet.merge_range(row, 0,row, 9, "", border_format)
         sheet.write(row, 10, "稅金", bold_format)
-        sheet.merge_range(row, 11,row, 13, records[0].tax_of_price if records else "", border_format)
+        # sheet.merge_range(row, 11,row, 13, records[0].tax_of_price if records else "", border_format)
+        sheet.merge_range(row, 11,row, 13, int(all_price * 0.05 + 0.5) if all_price else 0, border_format)
         row += 1
         sheet.merge_range(row, 0,row, 9, "", border_format)
         sheet.write(row, 10, "合計", bold_format)
-        sheet.merge_range(row, 11,row, 13, records[0].total_price_added_tax if records else "", border_format)
+        # sheet.merge_range(row, 11,row, 13, records[0].total_price_added_tax if records else "", border_format)
+        sheet.merge_range(row, 11,row, 13, all_price + int(all_price * 0.05 + 0.5) if all_price else 0, border_format)
         row += 1
         # 备注信息
-        commentObj = self.env["dtsc.crmusercomment"].search([("create_id","=",self.env.user.id)], order='sequence')
+        # commentObj = self.env["dtsc.crmusercomment"].search([("create_id","=",self.env.user.id)], order='sequence')
+        commentObj = self.env["dtsc.checkoutcomment"].search([("checkout_id","=",records[0].id)], order='sequence')
         
         row2 = row+len(commentObj)
         sheet.merge_range(row, 0, row2, 0, "備註", border_format)        
         
         for line in commentObj:
-            sheet.merge_range(row, 1,row, 13, str(line.sequence)+"."+(line.comment or ''), bold_format)
+            # sheet.merge_range(row, 1,row, 13, str(line.sequence)+"."+(line.comment or ''), bold_format)
+            sheet.merge_range(row, 1,row, 13, str(line.sequence)+"."+(line.name or ''), bold_format)
             row += 1        
         # sheet.merge_range(row, 1,row, 13, "2. 客戶自備印刷檔案。", border_format)
         # row += 1        
@@ -546,7 +711,8 @@ class CrmReport(models.AbstractModel):
         # _logger.info("================")
         docs = self.env['dtsc.checkout'].browse(docids)
         company = self.env['res.company'].search([])
-        comments = self.env["dtsc.crmusercomment"].search([("create_id","=",self.env.user.id)], order='sequence')
+        # comments = self.env["dtsc.crmusercomment"].search([("create_id","=",self.env.user.id)], order='sequence')
+        comments = self.env["dtsc.checkoutcomment"].search([("checkout_id","=",docs[0].id)], order='sequence')
         # _logger.info(comments)
         data["comments"] = comments
         data["len"] = len(data["comments"])
